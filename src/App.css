@@ -111,6 +111,7 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .logout-item {
@@ -182,15 +183,22 @@
   display: inline-block;
 }
 
+/* Product grid — cell width trimmed ~30% (145px -> 102px) so more cards
+   fit per row while keeping the same responsive auto-fill behavior */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(102px, 1fr));
+  gap: 11px;
 }
 
+/* ==========================================
+   Product Card — sized down ~30% overall
+   (image height, inner padding, text sizes,
+   button, and badge all scaled together)
+   ========================================== */
 .card {
   background-color: #ffffff;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
   display: flex;
@@ -201,21 +209,21 @@
 
 .out-of-stock-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 7px;
+  left: 7px;
   background-color: rgba(26, 26, 26, 0.85);
   color: #ffffff;
-  font-size: 10px;
+  font-size: 7px;
   font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.4px;
   z-index: 2;
 }
 
 .image-wrapper {
   width: 100%;
-  height: 190px;
+  height: 133px;
   background-color: #f5f5f5;
   overflow: hidden;
 }
@@ -232,20 +240,20 @@
   align-items: center;
   justify-content: center;
   color: #888;
-  font-size: 12px;
+  font-size: 8px;
 }
 
 .info-container {
-  padding: 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
 }
 
 .product-name {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 600;
-  margin: 0 0 4px 0;
+  margin: 0 0 3px 0;
   color: #1a1a1a;
 }
 
@@ -254,9 +262,9 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 8px;
   color: #777;
-  margin: 0 0 10px 0;
+  margin: 0 0 7px 0;
   line-height: 1.3;
   flex-grow: 1;
 }
@@ -265,12 +273,12 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   margin-top: auto;
 }
 
 .price {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
   color: #111;
 }
@@ -279,9 +287,9 @@
   background-color: #1a1a1a;
   color: #ffffff;
   border: none;
-  padding: 8px 10px;
-  border-radius: 4px;
-  font-size: 11px;
+  padding: 6px 7px;
+  border-radius: 3px;
+  font-size: 8px;
   cursor: pointer;
   font-weight: 500;
   text-align: center;
@@ -574,21 +582,22 @@
 .sidebar-links {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 24px;
-  flex-grow: 1; /* Occupies remaining vertical space smoothly */
+  gap: 4px;
+  margin-top: 18px;
+  flex-grow: 1;
+  overflow-y: auto;
 }
 
-/* Individual Link Item */
+/* Individual Link Item — shrunk so a longer category list still fits */
 .sidebar-item {
   display: flex;
   align-items: center;
-  font-size: 15px;
+  font-size: 12.5px;
   font-weight: 600;
   color: #222222;
   text-decoration: none;
-  letter-spacing: 0.5px;
-  padding: 12px 14px;
+  letter-spacing: 0.3px;
+  padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -650,6 +659,16 @@
   border-bottom-color: #0066cc;
 }
 
+/* Sidebar section label — shrunk to match the smaller items */
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #999999;
+  margin: 12px 0 3px 12px;
+}
+
 /* Responsive breakpoint to switch between desktop links & sidebar button */
 @media (max-width: 768px) {
   .menu-toggle-btn {
@@ -657,5 +676,147 @@
   }
   .desktop-nav-links-only {
     display: none;
+  }
+}
+
+/* ==========================================
+   Category Bar (below main navbar)
+   Horizontal padding removed — the navbar
+   itself already applies 4% side padding,
+   so the bar shares the same left/right edge
+   as "Shop / Hi user / Contact Us".
+   ========================================== */
+
+.category-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 1300px;
+  margin: 18px auto 0 auto;
+  padding: 0 0 10px 0;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.category-bar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.category-bar-item {
+  flex: 0 0 auto;
+  background: none;
+  border: 1px solid #e2e2e2;
+  color: #555555;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  padding: 6px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.category-bar-item:hover {
+  background-color: #f5f5f5;
+  color: #1a1a1a;
+}
+
+.category-bar-item.active {
+  background-color: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Show the desktop category bar on desktop, hide the mobile one */
+.category-bar-desktop {
+  display: flex;
+}
+
+.category-bar-mobile {
+  display: none;
+}
+
+/* Responsive breakpoint — swap which category bar shows, and on mobile
+   let categories wrap into two stacked rows (instead of one long
+   horizontal scroll) with smaller text so more fit at once. The main
+   navbar (logo/search/links row) is untouched here — only the category
+   bar and search-input get adjusted. */
+@media (max-width: 768px) {
+  .category-bar-desktop {
+    display: none;
+  }
+
+  .category-bar-mobile {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    column-gap: 6px;
+    max-height: 74px; /* roughly two rows at the smaller mobile item size */
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .category-bar {
+    margin-top: 14px;
+    padding-bottom: 8px;
+  }
+
+  .category-bar-item {
+    font-size: 10.5px;
+    padding: 4px 10px;
+    border-radius: 12px;
+  }
+
+  .search-input {
+    padding: 8px 34px 8px 14px;
+  }
+}
+
+/* ==========================================
+   Desktop-only: navbar height reduced ~28%
+   (scaled paddings/dimensions to shrink the
+   vertical footprint without shrinking text
+   to the point of illegibility)
+   ========================================== */
+@media (min-width: 769px) {
+  .navbar {
+    padding: 8.6px 4%;
+  }
+
+  .logo-image {
+    width: 27px;
+    height: 27px;
+  }
+
+  .logo-text {
+    font-size: 14px;
+    letter-spacing: 1.4px;
+  }
+
+  .nav-container {
+    gap: 8.5px;
+  }
+
+  .search-input {
+    padding: 7px 30px 7px 12px;
+    font-size: 13px;
+  }
+
+  .cart-link {
+    padding: 4px 9px;
+    font-size: 11px;
+  }
+
+  .category-bar {
+    margin-top: 16px;
+    padding-bottom: 7px;
+  }
+
+  .category-bar-item {
+    padding: 4px 11px;
+    font-size: 11px;
   }
 }

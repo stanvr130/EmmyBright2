@@ -104,10 +104,11 @@ function Auth({ onAuthSuccess }) {
         await sendOtpRequest(formData.email);
         setShowOtpScreen(true);
       }
-    } catch (err) {
+  } catch (err) {
       console.error('Authentication error:', err);
       const errorMessage =
         err.response?.data?.message ||
+        err.response?.data?.error ||
         err.message ||
         'Something went wrong during authentication.';
       setAlert({ type: 'error', message: errorMessage });

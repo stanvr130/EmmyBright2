@@ -7,13 +7,22 @@ export default function AdminPanel({
   backendUrl = 'http://localhost:5000', 
   onProductsUpdated 
 }) {
-  // Tab State: 'inventory' | 'orders'
+  // Tab State: 'inventory' | 'orders' | 'categories'
   const [activeTab, setActiveTab] = useState('inventory');
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Categories state
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoryError, setCategoryError] = useState('');
+  const [categorySuccessMsg, setCategorySuccessMsg] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
 
   // Form State
   const [isEditing, setIsEditing] = useState(false);
@@ -30,7 +39,7 @@ export default function AdminPanel({
     name: '',
     description: '',
     price: '',
-    category: '',
+    categoryId: '',
     variants: [{ size: '', color: '', stock: 0 }]
   });
 
@@ -55,13 +64,27 @@ export default function AdminPanel({
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      setCategoriesLoading(true);
+      const res = await api.get('/categories');
+      setCategories(res.data);
+    } catch (err) {
+      setCategoryError(err.response?.data?.error || err.message || 'Failed to load categories');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   // Helper to sync local state and alert parent container
   const handleDataChange = () => {
     fetchProducts();
+    fetchCategories(); // product counts per category may have changed
     if (typeof onProductsUpdated === 'function') {
       onProductsUpdated();
     }
@@ -105,7 +128,7 @@ export default function AdminPanel({
       name: '',
       description: '',
       price: '',
-      category: '',
+      categoryId: '',
       variants: [{ size: '', color: '', stock: 0 }]
     });
     setImageFile(null);
@@ -150,7 +173,7 @@ export default function AdminPanel({
     dataToSend.append('name', formData.name);
     dataToSend.append('description', formData.description);
     dataToSend.append('price', parseFloat(formData.price));
-    dataToSend.append('category', formData.category);
+    dataToSend.append('categoryId', formData.categoryId);
     dataToSend.append('variants', JSON.stringify(processedVariants));
 
     if (imageFile) {
@@ -187,7 +210,7 @@ export default function AdminPanel({
       name: product.name || '',
       description: product.description || '',
       price: product.price || '',
-      category: product.category || '',
+      categoryId: product.categoryId || '',
       variants: product.variants?.length > 0 
         ? product.variants 
         : [{ size: '', color: '', stock: 0 }]
@@ -209,6 +232,76 @@ export default function AdminPanel({
       handleDataChange();
     } catch (err) {
       setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to delete product');
+    }
+  };
+
+  // ==========================================
+  //           CATEGORY HANDLERS
+  // ==========================================
+
+  const handleCreateCategory = async (e) => {
+    e.preventDefault();
+    setCategoryError('');
+    setCategorySuccessMsg('');
+
+    if (!newCategoryName.trim()) return;
+
+    try {
+      await api.post('/categories', { name: newCategoryName.trim() });
+      setCategorySuccessMsg('Category created successfully!');
+      setNewCategoryName('');
+      fetchCategories();
+    } catch (err) {
+      setCategoryError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to create category');
+    }
+  };
+
+  const startEditCategory = (category) => {
+    setEditingCategoryId(category.id);
+    setEditingCategoryName(category.name);
+    setCategoryError('');
+    setCategorySuccessMsg('');
+  };
+
+  const cancelEditCategory = () => {
+    setEditingCategoryId(null);
+    setEditingCategoryName('');
+  };
+
+  const handleRenameCategory = async (id) => {
+    if (!editingCategoryName.trim()) return;
+    setCategoryError('');
+    setCategorySuccessMsg('');
+
+    try {
+      await api.put(`/categories/${id}`, { name: editingCategoryName.trim() });
+      setCategorySuccessMsg('Category renamed successfully!');
+      setEditingCategoryId(null);
+      setEditingCategoryName('');
+      fetchCategories();
+      fetchProducts(); // product list shows category names, refresh it too
+    } catch (err) {
+      setCategoryError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to rename category');
+    }
+  };
+
+  const handleDeleteCategory = async (id, productCount) => {
+    if (productCount > 0) {
+      alert(`Cannot delete this category — ${productCount} product(s) are still assigned to it. Reassign them first.`);
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this category?')) return;
+
+    setCategoryError('');
+    setCategorySuccessMsg('');
+
+    try {
+      await api.delete(`/categories/${id}`);
+      setCategorySuccessMsg('Category deleted successfully');
+      fetchCategories();
+    } catch (err) {
+      setCategoryError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to delete category');
     }
   };
 
@@ -240,6 +333,23 @@ export default function AdminPanel({
 
         <button
           type="button"
+          onClick={() => setActiveTab('categories')}
+          style={{
+            padding: '12px 24px',
+            cursor: 'pointer',
+            border: 'none',
+            background: 'none',
+            fontSize: '16px',
+            fontWeight: activeTab === 'categories' ? 'bold' : 'normal',
+            borderBottom: activeTab === 'categories' ? '3px solid #007bff' : '3px solid transparent',
+            color: activeTab === 'categories' ? '#007bff' : '#555'
+          }}
+        >
+          📂 Categories
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('orders')}
           style={{
             padding: '12px 24px',
@@ -259,6 +369,103 @@ export default function AdminPanel({
       {/* Render Orders Tab */}
       {activeTab === 'orders' && (
         <OrdersManager backendUrl={backendUrl} />
+      )}
+
+      {/* Render Categories Tab */}
+      {activeTab === 'categories' && (
+        <>
+          {categoryError && <div className="admin-alert error">{categoryError}</div>}
+          {categorySuccessMsg && <div className="admin-alert success">{categorySuccessMsg}</div>}
+
+          <section className="admin-card">
+            <h2>Add New Category</h2>
+            <form onSubmit={handleCreateCategory} className="admin-form">
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Category Name *</label>
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="e.g. Accessories"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Add Category
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="admin-card">
+            <h2>Existing Categories</h2>
+            {categoriesLoading ? (
+              <p>Loading categories...</p>
+            ) : categories.length === 0 ? (
+              <p>No categories yet. Add one above to get started.</p>
+            ) : (
+              <div className="table-wrapper">
+                <table className="inventory-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Products</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categories.map((cat) => (
+                      <tr key={cat.id}>
+                        <td>#{cat.id}</td>
+                        <td>
+                          {editingCategoryId === cat.id ? (
+                            <input
+                              type="text"
+                              value={editingCategoryName}
+                              onChange={(e) => setEditingCategoryName(e.target.value)}
+                              autoFocus
+                            />
+                          ) : (
+                            <strong>{cat.name}</strong>
+                          )}
+                        </td>
+                        <td>{cat._count?.products ?? 0}</td>
+                        <td className="action-cells">
+                          {editingCategoryId === cat.id ? (
+                            <>
+                              <button className="btn-edit" onClick={() => handleRenameCategory(cat.id)}>
+                                Save
+                              </button>
+                              <button className="btn-secondary" onClick={cancelEditCategory}>
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button className="btn-edit" onClick={() => startEditCategory(cat)}>
+                                Rename
+                              </button>
+                              <button
+                                className="btn-delete"
+                                onClick={() => handleDeleteCategory(cat.id, cat._count?.products ?? 0)}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
       )}
 
       {/* Render Inventory Tab */}
@@ -284,13 +491,24 @@ export default function AdminPanel({
 
                 <div className="form-group">
                   <label>Category *</label>
-                  <input
-                    type="text"
-                    name="category"
-                    value={formData.category}
+                  <select
+                    name="categoryId"
+                    value={formData.categoryId}
                     onChange={handleInputChange}
                     required
-                  />
+                  >
+                    <option value="" disabled>Select a category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                  {categories.length === 0 && !categoriesLoading && (
+                    <small style={{ color: '#b36b00' }}>
+                      No categories yet — create one in the Categories tab first.
+                    </small>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -435,7 +653,7 @@ export default function AdminPanel({
                           )}
                         </td>
                         <td><strong>{prod.name}</strong></td>
-                        <td>{prod.category}</td>
+                        <td>{prod.categoryRef?.name || <em>Uncategorized</em>}</td>
                         <td>₦{Number(prod.price).toLocaleString()}</td>
                         <td>
                           {prod.variants?.length > 0 ? (

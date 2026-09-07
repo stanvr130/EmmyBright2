@@ -25,8 +25,16 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Check if failure is due to 401 (Unauthorized) and has not been retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Check if the request was made to an auth endpoint
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') ||
+                           originalRequest.url?.includes('/auth/register') ||
+                           originalRequest.url?.includes('/auth/verify-otp') ||
+                           originalRequest.url?.includes('/auth/forgot-password') ||
+                           originalRequest.url?.includes('/auth/reset-password') ||
+                           originalRequest.url?.includes('/auth/refresh');
+
+    // Check if failure is due to 401 (Unauthorized), has not been retried yet, AND is NOT an auth request
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {
@@ -47,10 +55,10 @@ api.interceptors.response.use(
 
         // Retry original request seamlessly
         return api(originalRequest);
-      }  catch (refreshError) {
+      } catch (refreshError) {
         // Refresh token expired or missing -> clear local state & redirect to login
         localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+        localStorage.removeItem('userData');
 
         // Only redirect if the user isn't already on the login page
         if (window.location.pathname !== '/login') {
@@ -61,6 +69,7 @@ api.interceptors.response.use(
       }
     }
 
+    // Pass the actual backend response error directly back to the calling component
     return Promise.reject(error);
   }
 );

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from './api/api';
 
-function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem, backendUrl }) {
+function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem, backendUrl, user }) {
   if (!isOpen) return null;
 
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [deliveryData, setDeliveryData] = useState({
     streetAddress: '',
     city: '',
@@ -26,6 +29,14 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
 
   const handleCheckout = async (e) => {
     e.preventDefault();
+
+    // Login is required before delivery details. Show custom confirmation modal
+    // instead of redirecting immediately, so the guest isn't yanked away
+    // without warning.
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
 
     if (!deliveryData.streetAddress || !deliveryData.city || !deliveryData.state || !deliveryData.phone) {
       alert('Please fill in all shipping and phone contact fields.');
@@ -58,6 +69,17 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirmLogin = () => {
+    setShowLoginModal(false);
+    sessionStorage.setItem('eb_pendingCheckout', 'true');
+    onClose();
+    navigate('/login');
+  };
+
+  const handleCancelLogin = () => {
+    setShowLoginModal(false);
   };
 
   return (
@@ -138,49 +160,60 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
                   );
                 })}
 
-                <div style={styles.deliverySection}>
-                  <h3 style={styles.sectionHeader}>Shipping Details</h3>
-                  <div style={styles.formGroup}>
-                    <input
-                      type="text"
-                      name="streetAddress"
-                      placeholder="Street Address"
-                      value={deliveryData.streetAddress}
-                      onChange={handleInputChange}
-                      style={styles.inputField}
-                      required
-                    />
-                    <div style={styles.inlineFormGroup}>
+                {/* Delivery details are only ever shown to a logged-in user —
+                    a guest is sent to /login first, and only sees this form
+                    once they're back with an active session. */}
+                {user ? (
+                  <div style={styles.deliverySection}>
+                    <h3 style={styles.sectionHeader}>Shipping Details</h3>
+                    <div style={styles.formGroup}>
                       <input
                         type="text"
-                        name="city"
-                        placeholder="City"
-                        value={deliveryData.city}
+                        name="streetAddress"
+                        placeholder="Street Address"
+                        value={deliveryData.streetAddress}
                         onChange={handleInputChange}
-                        style={{ ...styles.inputField, flex: 1, minWidth: 0 }}
+                        style={styles.inputField}
                         required
                       />
+                      <div style={styles.inlineFormGroup}>
+                        <input
+                          type="text"
+                          name="city"
+                          placeholder="City"
+                          value={deliveryData.city}
+                          onChange={handleInputChange}
+                          style={{ ...styles.inputField, flex: 1, minWidth: 0 }}
+                          required
+                        />
+                        <input
+                          type="text"
+                          name="state"
+                          placeholder="State"
+                          value={deliveryData.state}
+                          onChange={handleInputChange}
+                          style={{ ...styles.inputField, flex: 1, minWidth: 0 }}
+                          required
+                        />
+                      </div>
                       <input
-                        type="text"
-                        name="state"
-                        placeholder="State"
-                        value={deliveryData.state}
+                        type="tel"
+                        name="phone"
+                        placeholder="Phone Number"
+                        value={deliveryData.phone}
                         onChange={handleInputChange}
-                        style={{ ...styles.inputField, flex: 1, minWidth: 0 }}
+                        style={styles.inputField}
                         required
                       />
                     </div>
-                    <input
-                      type="tel"
-                      name="phone"
-                      placeholder="Phone Number"
-                      value={deliveryData.phone}
-                      onChange={handleInputChange}
-                      style={styles.inputField}
-                      required
-                    />
                   </div>
-                </div>
+                ) : (
+                  <div style={styles.deliverySection}>
+                    <p style={styles.guestPrompt}>
+                      Log in to enter your delivery details and complete checkout.
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -211,15 +244,106 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
                 }} 
                 disabled={loading}
               >
-                {loading ? 'Processing...' : `Pay ₦${grandTotal.toLocaleString()}`}
+                {loading ? 'Processing...' : user ? `Pay ₦${grandTotal.toLocaleString()}` : 'Log In to Checkout'}
               </button>
             </div>
           )}
         </form>
       </div>
+
+      {/* Custom Login Prompt Modal */}
+      {showLoginModal && (
+        <div style={modalStyles.overlay} onClick={(e) => e.stopPropagation()}>
+          <div style={modalStyles.container}>
+            <h3 style={modalStyles.title}>Login Required</h3>
+            <p style={modalStyles.text}>
+              You need to log in to complete checkout. Would you like to continue to login?
+            </p>
+            <div style={modalStyles.buttonRow}>
+              <button 
+                type="button" 
+                style={modalStyles.cancelBtn} 
+                onClick={handleCancelLogin}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                style={modalStyles.confirmBtn} 
+                onClick={handleConfirmLogin}
+              >
+                Log In
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const modalStyles = {
+  overlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3000
+  },
+  container: {
+    backgroundColor: '#ffffff',
+    padding: '24px',
+    borderRadius: '12px',
+    maxWidth: '380px',
+    width: '90%',
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
+    textAlign: 'center'
+  },
+  title: {
+    margin: '0 0 10px 0',
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#111111'
+  },
+  text: {
+    margin: '0 0 20px 0',
+    fontSize: '14px',
+    color: '#555555',
+    lineHeight: '1.5'
+  },
+  buttonRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '12px'
+  },
+  cancelBtn: {
+    flex: 1,
+    padding: '10px 16px',
+    border: '1px solid #dddddd',
+    borderRadius: '6px',
+    backgroundColor: '#f5f5f7',
+    color: '#333333',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600'
+  },
+  confirmBtn: {
+    flex: 1,
+    padding: '10px 16px',
+    border: 'none',
+    borderRadius: '6px',
+    backgroundColor: '#000000',
+    color: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '700'
+  }
+};
 
 const responsiveCSS = `
   .proportional-cart-panel * {
@@ -427,6 +551,14 @@ const styles = {
     fontWeight: '700',
     color: '#222222',
     textTransform: 'uppercase'
+  },
+  guestPrompt: {
+    margin: 0,
+    fontSize: '13px',
+    color: '#666666',
+    lineHeight: '1.5',
+    textAlign: 'center',
+    padding: '8px 4px'
   },
   formGroup: {
     display: 'flex',

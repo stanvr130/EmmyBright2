@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Cart from './Cart'; 
 import Auth from './Auth'; 
 import AdminPanel from './AdminPanel';
 import AccountPage from './AccountPage';
+import ContactUs from './ContactUs';
 import ProtectedRoute from './ProtectedRoute';
 import ProductDetail from './ProductDetail';
 import api from './api/api'; 
@@ -32,10 +33,17 @@ const styles = {
   integratedDeliveryWrapper: {}
 };
 
+const LOGO_SRC = '/asset/logoo.png';
+const LOGO_FALLBACK = 'https://via.placeholder.com/50?text=EB';
+
 function App() {
   const [products, setProducts] = useState([]);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState(''); 
+
+  // CATEGORY FILTER STATE (for the new category bar)
+  const [categories, setCategories] = useState([]);
+  const [activeCategoryId, setActiveCategoryId] = useState(null); // null = "All"
   
   // PRODUCT DETAIL VIEW STATE
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -65,6 +73,13 @@ function App() {
       isValid: false
     };
   });
+
+  // LOGO IMAGE STATE — one guarded retry (in case of a transient/dev-only
+  // aborted fetch), then falls back to a placeholder and logs the exact
+  // URL that failed so the real cause (wrong path/case/extension) is easy
+  // to spot in the browser console.
+  const [logoSrc, setLogoSrc] = useState(LOGO_SRC);
+  const [logoRetried, setLogoRetried] = useState(false);
   
   const backendUrl = 'http://localhost:5000'; 
   const navigate = useNavigate();
@@ -123,18 +138,46 @@ function App() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
 
   const handleAuthSuccess = async (authenticatedUser) => {
     setUser(authenticatedUser);
-    
+
+    // If the user was sent here from ProtectedRoute (e.g. tried to open
+    // /account or /admin directly), location.state.from tells us where to
+    // send them back to. If they were sent here mid-checkout, we instead
+    // want to land on "/" and reopen the cart so they can finish.
+    const hadPendingCheckout = sessionStorage.getItem('eb_pendingCheckout') === 'true';
+    const redirectTarget = location.state?.from;
+
+    if (hadPendingCheckout) {
+      sessionStorage.removeItem('eb_pendingCheckout');
+    }
+
+    navigate(hadPendingCheckout ? '/' : (redirectTarget || '/'));
+
     try {
-      const cartResponse = await api.get('/cart');
-      if (cartResponse.data && cartResponse.data.cartItems) {
-        setCartItems(cartResponse.data.cartItems);
-        localStorage.setItem('eb_cartItems', JSON.stringify(cartResponse.data.cartItems));
+      // Don't clobber the guest's in-progress cart with whatever (likely
+      // empty) cart the backend has saved for this account — they were
+      // mid-checkout and their items are still sitting in local state.
+      if (!hadPendingCheckout) {
+        const cartResponse = await api.get('/cart');
+        if (cartResponse.data && cartResponse.data.cartItems) {
+          setCartItems(cartResponse.data.cartItems);
+          localStorage.setItem('eb_cartItems', JSON.stringify(cartResponse.data.cartItems));
+        }
       }
 
       const deliveryResponse = await api.get('/delivery');
@@ -144,6 +187,10 @@ function App() {
       }
     } catch (err) {
       console.error("Error restoring remote database variables context on authorization sync:", err);
+    }
+
+    if (hadPendingCheckout) {
+      setIsCartOpen(true);
     }
   };
 
@@ -223,30 +270,82 @@ function App() {
     setCartItems((prevItems) => prevItems.filter(item => (item.variantId || item.id || item._id) !== productId));
   };
 
+  // Selecting a category from the category bar or sidebar — filters the
+  // homepage to just that category. Passing null resets to "All".
+  const handleSelectCategory = (categoryId) => {
+    setActiveCategoryId(categoryId);
+    handleCloseProductView();
+    if (location.pathname !== '/') {
+      navigate('/');
+    }
+  };
+
+  // Guarded logo error handler. First failure gets one retry with a
+  // cache-busting query param. If that also fails, we know it's a real
+  // 404/path issue (not a transient dev-mode double-fetch), so we log the
+  // exact URL that failed and fall back to the placeholder.
+  const handleLogoError = (e) => {
+    if (!logoRetried) {
+      setLogoRetried(true);
+      setLogoSrc(`${LOGO_SRC}?retry=${Date.now()}`);
+    } else {
+      console.error(
+        `EmmyBright logo failed to load. Last attempted URL: ${e.target.src} — ` +
+        `check that the file actually exists at public${LOGO_SRC} (case-sensitive, correct extension).`
+      );
+      setLogoSrc(LOGO_FALLBACK);
+    }
+  };
+
   if (!checkedAuth) {
     return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading EmmyBright...</div>;
   }
 
-  if (!user) {
-    return <Auth backendUrl={backendUrl} onAuthSuccess={handleAuthSuccess} />;
-  }
+  // NOTE: the old hard gate that forced <Auth /> for every guest has been
+  // removed — the storefront, product details, search, and categories are
+  // now all public. Login is only required at /account, /admin, and at
+  // checkout (enforced inside Cart.jsx and ProtectedRoute.jsx).
 
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Helper — safely reads the category name/id off a product regardless of
+  // whether it came from /products (nested categoryRef) or elsewhere.
+  const getCategoryName = (product) => product.categoryRef?.name || 'Uncategorized';
+  const getCategoryId = (product) => product.categoryRef?.id ?? product.categoryId ?? null;
 
   const filteredProducts = products.filter(product => {
     const query = searchQuery.toLowerCase();
     const matchesName = product.name?.toLowerCase().includes(query);
-    const matchesCategory = product.category?.toLowerCase().includes(query);
+    const matchesCategory = getCategoryName(product).toLowerCase().includes(query);
     const matchesDescription = product.description?.toLowerCase().includes(query);
+    const matchesSearch = matchesName || matchesCategory || matchesDescription;
 
-    return matchesName || matchesCategory || matchesDescription;
+    const matchesActiveCategory = activeCategoryId === null || getCategoryId(product) === activeCategoryId;
+
+    return matchesSearch && matchesActiveCategory;
   });
 
-  const suits = filteredProducts.filter(p => p.category?.toLowerCase().includes('suit'));
-  const shoes = filteredProducts.filter(p => p.category?.toLowerCase().includes('shoe'));
-  const otherItems = filteredProducts.filter(p => !p.category?.toLowerCase().includes('suit') && !p.category?.toLowerCase().includes('shoe'));
+  // Group products dynamically by their real category name instead of
+  // hardcoding "suit"/"shoe" — any category created in the admin panel
+  // automatically gets its own section here.
+  const productsByCategory = filteredProducts.reduce((groups, product) => {
+    const categoryName = getCategoryName(product);
+    if (!groups[categoryName]) {
+      groups[categoryName] = [];
+    }
+    groups[categoryName].push(product);
+    return groups;
+  }, {});
+
+  const sortedCategoryNames = Object.keys(productsByCategory).sort((a, b) => {
+    // Keep "Uncategorized" pinned last, everything else alphabetical
+    if (a === 'Uncategorized') return 1;
+    if (b === 'Uncategorized') return -1;
+    return a.localeCompare(b);
+  });
 
   const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Account');
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   const getProductImageUrl = (product) => {
     if (!product || !product.image) return null;
@@ -352,6 +451,29 @@ function App() {
     );
   };
 
+  // Reusable category bar — small text, horizontal scroll, "All" + real categories
+  const renderCategoryBar = (extraClassName = '') => (
+    <div className={`category-bar ${extraClassName}`}>
+      <button
+        type="button"
+        className={`category-bar-item ${activeCategoryId === null ? 'active' : ''}`}
+        onClick={() => handleSelectCategory(null)}
+      >
+        All
+      </button>
+      {categories.map((cat) => (
+        <button
+          type="button"
+          key={cat.id}
+          className={`category-bar-item ${activeCategoryId === cat.id ? 'active' : ''}`}
+          onClick={() => handleSelectCategory(cat.id)}
+        >
+          {cat.name}
+        </button>
+      ))}
+    </div>
+  );
+
   const shopView = (
     selectedProduct ? (
       <ProductDetail 
@@ -370,39 +492,23 @@ function App() {
       />
     ) : (
       <>
-        <section className="section">
-          <h2 className="section-title">Bespoke Suits</h2>
-          <div className="grid">
-            {suits.length > 0 ? suits.map((product, index) => renderProductCard(product, index)) : (
-              <p className="no-results-text">{searchQuery ? "No matching suits found." : "No suits loaded under this structural name layout."}</p>
-            )}
-          </div>
-        </section>
-
-        <section className="section">
-          <h2 className="section-title">Luxury Shoes</h2>
-          <div className="grid">
-            {shoes.length > 0 ? shoes.map((product, index) => renderProductCard(product, index)) : (
-              <p className="no-results-text">{searchQuery ? "No matching shoes found." : "No shoes loaded under this structural name layout."}</p>
-            )}
-          </div>
-        </section>
-
-        {otherItems.length > 0 && (
-          <section className="section">
-            <h2 className="section-title">Vault Collection</h2>
-            <div className="grid">
-              {otherItems.map((product, index) => renderProductCard(product, index))}
-            </div>
-          </section>
-        )}
-
-        {suits.length === 0 && shoes.length === 0 && otherItems.length === 0 && filteredProducts.length > 0 && (
+        {sortedCategoryNames.length > 0 ? (
+          sortedCategoryNames.map((categoryName) => (
+            <section className="section" key={categoryName}>
+              <h2 className="section-title">{categoryName}</h2>
+              <div className="grid">
+                {productsByCategory[categoryName].map((product, index) =>
+                  renderProductCard(product, index)
+                )}
+              </div>
+            </section>
+          ))
+        ) : (
           <section className="section">
             <h2 className="section-title">Store Inventory</h2>
-            <div className="grid">
-              {filteredProducts.map((product, index) => renderProductCard(product, index))}
-            </div>
+            <p className="no-results-text">
+              {searchQuery || activeCategoryId !== null ? 'No matching products found.' : 'No products available yet.'}
+            </p>
           </section>
         )}
       </>
@@ -428,10 +534,12 @@ function App() {
               onClick={handleCloseProductView}
             >
               <img 
-                src="/asset/logoo.jpg" 
+                src={logoSrc}
                 alt="EmmyBright Logo" 
-                className="logo-image" 
-                onError={(e) => { e.target.src = 'https://via.placeholder.com/50?text=EB'; }}
+                className="logo-image"
+                width="38"
+                height="38"
+                onError={handleLogoError}
               />
               <div className="logo-text">EmmyBright</div>
             </Link>
@@ -441,6 +549,44 @@ function App() {
                 🛒 ({totalCartCount})
               </span>
             </div>
+          </div>
+
+          {/* Desktop nav links: Shop, Hi {name}/Login, Contact Us, Admin (if applicable) */}
+          <div className="desktop-nav-links-only">
+            <NavLink 
+              to="/" 
+              end
+              className="link-item" 
+              onClick={handleCloseProductView}
+            >
+              Shop
+            </NavLink>
+
+            {user ? (
+              <NavLink to="/account" className="link-item">
+                Hi {displayName}
+              </NavLink>
+            ) : (
+              <NavLink to="/login" className="link-item">
+                Login
+              </NavLink>
+            )}
+
+            <NavLink 
+              to="/contact" 
+              className="link-item"
+            >
+              Contact Us
+            </NavLink>
+
+            {isAdmin && (
+              <NavLink 
+                to="/admin" 
+                className="link-item admin-link"
+              >
+                ⚙️ Admin Panel
+              </NavLink>
+            )}
           </div>
           
           {location.pathname === '/' && (
@@ -458,34 +604,11 @@ function App() {
               {searchQuery && <button className="clear-btn" onClick={() => setSearchQuery('')}>✕</button>}
             </div>
           )}
-
-          <div className="desktop-nav-links-only">
-            <NavLink 
-              to="/" 
-              end
-              className="link-item" 
-              onClick={handleCloseProductView}
-            >
-              Shop
-            </NavLink>
-            
-            {user?.role?.toLowerCase() === 'admin' && (
-              <NavLink 
-                to="/admin" 
-                className="link-item admin-link"
-              >
-                ⚙️ Admin Panel
-              </NavLink>
-            )}
-
-            <NavLink to="/account" className="link-item">
-              Hi {displayName}
-            </NavLink>
-            <span className="cart-link" onClick={() => setIsCartOpen(true)}>
-              Cart ({totalCartCount})
-            </span>
-          </div>
         </div>
+
+        {/* CATEGORY BAR — small text, horizontal, below main navbar. Shown on desktop and mobile. */}
+        {location.pathname === '/' && renderCategoryBar('category-bar-desktop')}
+        {location.pathname === '/' && renderCategoryBar('category-bar-mobile')}
       </nav>
 
       {/* Side Navigation Overlay Backdrop */}
@@ -507,12 +630,6 @@ function App() {
               setIsSidebarOpen(false);
             }}
           >
-            <img 
-              src="/asset/logoo.jpg" 
-              alt="EmmyBright Logo" 
-              className="logo-image" 
-              onError={(e) => { e.target.src = 'https://via.placeholder.com/50?text=EB'; }}
-            />
             <div className="logo-text">EmmyBright</div>
           </Link>
           <button 
@@ -536,12 +653,30 @@ function App() {
             ✨ Shop
           </NavLink>
 
+          {user ? (
+            <NavLink 
+              to="/account" 
+              className="sidebar-item"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              👤 Hi {displayName}
+            </NavLink>
+          ) : (
+            <NavLink 
+              to="/login" 
+              className="sidebar-item"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              👤 Login
+            </NavLink>
+          )}
+
           <NavLink 
-            to="/account" 
+            to="/contact" 
             className="sidebar-item"
             onClick={() => setIsSidebarOpen(false)}
           >
-            👤 Hi {displayName}
+            📞 Contact Us
           </NavLink>
 
           <div 
@@ -554,7 +689,7 @@ function App() {
             🛒 Cart ({totalCartCount})
           </div>
 
-          {user?.role?.toLowerCase() === 'admin' && (
+          {isAdmin && (
             <NavLink 
               to="/admin" 
               className="sidebar-item admin-sidebar-link"
@@ -563,6 +698,30 @@ function App() {
               ⚙️ Admin Panel
             </NavLink>
           )}
+
+          {/* Categories — added underneath the main links, as requested */}
+          <div className="sidebar-section-label">Categories</div>
+          <div
+            className={`sidebar-item ${activeCategoryId === null ? 'active' : ''}`}
+            onClick={() => {
+              handleSelectCategory(null);
+              setIsSidebarOpen(false);
+            }}
+          >
+            All
+          </div>
+          {categories.map((cat) => (
+            <div
+              key={cat.id}
+              className={`sidebar-item ${activeCategoryId === cat.id ? 'active' : ''}`}
+              onClick={() => {
+                handleSelectCategory(cat.id);
+                setIsSidebarOpen(false);
+              }}
+            >
+              {cat.name}
+            </div>
+          ))}
         </div>
       </aside>
 
@@ -576,7 +735,7 @@ function App() {
         >
           ✨ Shop
         </NavLink>
-        {user?.role?.toLowerCase() === 'admin' && (
+        {isAdmin && (
           <NavLink 
             to="/admin" 
             className="mobile-bar-item admin-mobile-link"
@@ -584,12 +743,21 @@ function App() {
             ⚙️ Admin
           </NavLink>
         )}
-        <NavLink 
-          to="/account" 
-          className="mobile-bar-item"
-        >
-          👤 Hi {displayName}
-        </NavLink>
+        {user ? (
+          <NavLink 
+            to="/account" 
+            className="mobile-bar-item"
+          >
+            👤 Hi {displayName}
+          </NavLink>
+        ) : (
+          <NavLink 
+            to="/login" 
+            className="mobile-bar-item"
+          >
+            👤 Login
+          </NavLink>
+        )}
       </div>
 
       <Cart 
@@ -602,6 +770,7 @@ function App() {
         deliveryFee={deliveryData.fee}
         deliveryDetails={deliveryData.addressDetails}
         isDeliveryValid={deliveryData.isValid}
+        user={user}
       />
 
       {error && <div className="error-alert">Error: {error}</div>}
@@ -609,6 +778,19 @@ function App() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={shopView} />
+
+          <Route path="/contact" element={<ContactUs />} />
+
+          <Route
+            path="/login"
+            element={
+              user ? (
+                <Navigate to="/" replace />
+              ) : (
+                <Auth backendUrl={backendUrl} onAuthSuccess={handleAuthSuccess} />
+              )
+            }
+          />
 
           <Route
             path="/account"
