@@ -80,8 +80,7 @@ function App() {
   // to spot in the browser console.
   const [logoSrc, setLogoSrc] = useState(LOGO_SRC);
   const [logoRetried, setLogoRetried] = useState(false);
-  
-  const backendUrl = 'http://localhost:5000'; 
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
   const navigate = useNavigate();
   const location = useLocation();
 

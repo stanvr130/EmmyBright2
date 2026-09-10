@@ -1,8 +1,11 @@
 import axios from 'axios';
 
 // 1. Create centralized Axios instance
+// 🔄 FIX: baseURL now reads from an environment variable instead of being
+// hardcoded to localhost. Vite exposes env vars prefixed VITE_ via
+// import.meta.env. Falls back to localhost for local dev if unset.
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Adjust if your backend port differs
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   withCredentials: true // CRUCIAL: Enables sending & receiving httpOnly cookies
 });
 
@@ -38,9 +41,10 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Request a new access token using the httpOnly refreshToken cookie
+        // 🔄 FIX: use the same configurable base URL instead of a
+        // hardcoded localhost address, so refresh works in production too.
         const refreshResponse = await axios.post(
-          'http://localhost:5000/api/auth/refresh',
+          `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/refresh`,
           {},
           { withCredentials: true }
         );
