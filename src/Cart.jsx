@@ -225,8 +225,8 @@ if (imagePath) {
           </div>
 
           {/* Footer Controls */}
-          {cartItems.length > 0 && (
-            <div style={styles.footer}>
+  {cartItems.length > 0 && (
+  <div className="cart-footer-fixed" style={styles.footer}>
               <div style={styles.breakdownRow}>
                 <span>Subtotal</span>
                 <span>₦{itemsSubtotal.toLocaleString()}</span>
@@ -361,6 +361,9 @@ const responsiveCSS = `
       width: 35vw !important;
       height: 80vh !important;
     }
+    .cart-footer-fixed {
+      width: 35vw !important;
+    }
   }
 
   @media (max-width: 480px) {
@@ -372,6 +375,9 @@ const responsiveCSS = `
     .proportional-cart-panel input {
       font-size: 11px !important;
       padding: 6px 8px !important;
+    }
+    .cart-footer-fixed {
+      width: 100vw !important;
     }
   }
 `;
@@ -458,6 +464,7 @@ const styles = {
     flexGrow: 1,
     overflowY: 'auto',
     padding: '16px',
+    paddingBottom: '130px',
     backgroundColor: '#fafafa',
       minHeight: 0,
   WebkitOverflowScrolling: 'touch'
@@ -587,12 +594,17 @@ const styles = {
     width: '100%',
     backgroundColor: '#ffffff'
   },
-  footer: {
-    padding: '16px',
-    borderTop: '1px solid #f0f0f0',
-    backgroundColor: '#ffffff',
-    flexShrink: 0
-  },
+ footer: {
+  position: 'fixed',
+  bottom: 0,
+  right: 0,
+  width: '40vw',
+  padding: '16px',
+  borderTop: '1px solid #f0f0f0',
+  backgroundColor: '#ffffff',
+  boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
+  zIndex: 10
+},
   breakdownRow: {
     display: 'flex',
     justifyContent: 'space-between',
