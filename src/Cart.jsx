@@ -109,12 +109,18 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
                 {cartItems.map((item, index) => {
                   const cartItemUniqueKey = item.variantId || item.id || item._id || `cart-item-${index}`;
 
-                  let imagePath = item.image || '';
-                  if (imagePath.startsWith('/public-images')) {
-                    imagePath = imagePath.replace('/public-images', '');
-                  }
-                  const fullImageUrl = imagePath ? `${backendUrl}/public-images${imagePath}` : null;
-
+                let imagePath = item.image || '';
+let fullImageUrl = null;
+if (imagePath) {
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    fullImageUrl = imagePath;
+  } else {
+    if (imagePath.startsWith('/public-images')) {
+      imagePath = imagePath.replace('/public-images', '');
+    }
+    fullImageUrl = `${backendUrl}/public-images${imagePath}`;
+  }
+}
                   return (
                     <div key={cartItemUniqueKey} style={styles.cartItem}>
                       <img 

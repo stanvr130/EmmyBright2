@@ -9,7 +9,7 @@ import ProtectedRoute from './ProtectedRoute';
 import ProductDetail from './ProductDetail';
 import api from './api/api'; 
 import './App.css';
-
+// relaxed-liger-24ef08.netlify.app
 const styles = {
   singleViewContainer: {},
   backBtn: {},
@@ -74,13 +74,9 @@ function App() {
     };
   });
 
-  // LOGO IMAGE STATE — one guarded retry (in case of a transient/dev-only
-  // aborted fetch), then falls back to a placeholder and logs the exact
-  // URL that failed so the real cause (wrong path/case/extension) is easy
-  // to spot in the browser console.
   const [logoSrc, setLogoSrc] = useState(LOGO_SRC);
   const [logoRetried, setLogoRetried] = useState(false);
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+ const backendUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -355,7 +351,7 @@ function App() {
     if (!rawPath.startsWith('/')) {
       rawPath = '/' + rawPath;
     }
-    return `http://localhost:5000${rawPath}`;
+    return `${backendUrl}${rawPath}`;
   };
 
   const normalizeVariantId = (variant, productId, index) => {
