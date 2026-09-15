@@ -408,7 +408,8 @@ const styles = {
     flexDirection: 'column',
     height: 'calc(100% - 50px)',
     flexGrow: 1,
-    overflow: 'hidden'
+    overflow: 'hidden',
+    minHeight: 0
   },
   header: {
     padding: '12px 16px',
@@ -457,7 +458,9 @@ const styles = {
     flexGrow: 1,
     overflowY: 'auto',
     padding: '16px',
-    backgroundColor: '#fafafa'
+    backgroundColor: '#fafafa',
+      minHeight: 0,
+  WebkitOverflowScrolling: 'touch'
   },
   emptyContainer: {
     display: 'flex',
