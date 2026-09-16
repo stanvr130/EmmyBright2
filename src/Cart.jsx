@@ -8,6 +8,7 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
   const [showPaymentSummary, setShowPaymentSummary] = useState(false);
   const [deliveryData, setDeliveryData] = useState({
     streetAddress: '',
@@ -31,23 +32,23 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
   const handleCheckout = async (e) => {
     e.preventDefault();
 
-    // Login is required before delivery details. Show custom confirmation modal
-    // instead of redirecting immediately, so the guest isn't yanked away
-    // without warning.
+    // 1. Authentication Check
     if (!user) {
       setShowLoginModal(true);
       return;
     }
 
-  const trimmedAddress = deliveryData.streetAddress?.trim();
-const trimmedCity = deliveryData.city?.trim();
-const trimmedState = deliveryData.state?.trim();
-const trimmedPhone = deliveryData.phone?.trim();
+    // 2. Strict Delivery Data Validation (with whitespace trimming)
+    const trimmedAddress = deliveryData.streetAddress?.trim();
+    const trimmedCity = deliveryData.city?.trim();
+    const trimmedState = deliveryData.state?.trim();
+    const trimmedPhone = deliveryData.phone?.trim();
 
-if (!trimmedAddress || !trimmedCity || !trimmedState || !trimmedPhone) {
-  alert('Please fill in all shipping and phone contact fields.');
-  return;
-}
+    if (!trimmedAddress || !trimmedCity || !trimmedState || !trimmedPhone) {
+      setShowValidationModal(true);
+      return; // Guaranteed early exit so empty payloads never reach Paystack/API
+    }
+
     setLoading(true);
 
     try {
@@ -56,8 +57,8 @@ if (!trimmedAddress || !trimmedCity || !trimmedState || !trimmedPhone) {
           variantId: item.variantId || (item.variants && item.variants[0]?.id) || item.id || item._id,
           quantity: item.quantity
         })),
-        shippingAddress: `${deliveryData.streetAddress}, ${deliveryData.city}, ${deliveryData.state}`,
-        phone: deliveryData.phone
+        shippingAddress: `${trimmedAddress}, ${trimmedCity}, ${trimmedState}`,
+        phone: trimmedPhone
       });
 
       const data = response.data;
@@ -114,18 +115,18 @@ if (!trimmedAddress || !trimmedCity || !trimmedState || !trimmedPhone) {
                 {cartItems.map((item, index) => {
                   const cartItemUniqueKey = item.variantId || item.id || item._id || `cart-item-${index}`;
 
-                let imagePath = item.image || '';
-let fullImageUrl = null;
-if (imagePath) {
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    fullImageUrl = imagePath;
-  } else {
-    if (imagePath.startsWith('/public-images')) {
-      imagePath = imagePath.replace('/public-images', '');
-    }
-    fullImageUrl = `${backendUrl}/public-images${imagePath}`;
-  }
-}
+                  let imagePath = item.image || '';
+                  let fullImageUrl = null;
+                  if (imagePath) {
+                    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+                      fullImageUrl = imagePath;
+                    } else {
+                      if (imagePath.startsWith('/public-images')) {
+                        imagePath = imagePath.replace('/public-images', '');
+                      }
+                      fullImageUrl = `${backendUrl}/public-images${imagePath}`;
+                    }
+                  }
                   return (
                     <div key={cartItemUniqueKey} style={styles.cartItem}>
                       <img 
@@ -171,9 +172,6 @@ if (imagePath) {
                   );
                 })}
 
-                {/* Delivery details are only ever shown to a logged-in user —
-                    a guest is sent to /login first, and only sees this form
-                    once they're back with an active session. */}
                 {user ? (
                   <div style={styles.deliverySection}>
                     <h3 style={styles.sectionHeader}>Shipping Details</h3>
@@ -185,7 +183,6 @@ if (imagePath) {
                         value={deliveryData.streetAddress}
                         onChange={handleInputChange}
                         style={styles.inputField}
-                        required
                       />
                       <div style={styles.inlineFormGroup}>
                         <input
@@ -195,7 +192,6 @@ if (imagePath) {
                           value={deliveryData.city}
                           onChange={handleInputChange}
                           style={{ ...styles.inputField, flex: 1, minWidth: 0 }}
-                          required
                         />
                         <input
                           type="text"
@@ -204,7 +200,6 @@ if (imagePath) {
                           value={deliveryData.state}
                           onChange={handleInputChange}
                           style={{ ...styles.inputField, flex: 1, minWidth: 0 }}
-                          required
                         />
                       </div>
                       <input
@@ -214,7 +209,6 @@ if (imagePath) {
                         value={deliveryData.phone}
                         onChange={handleInputChange}
                         style={styles.inputField}
-                        required
                       />
                     </div>
                   </div>
@@ -229,60 +223,59 @@ if (imagePath) {
             )}
           </div>
 
-          {/* Footer Controls */}
- {/* Payment toggle + summary panel */}
-{cartItems.length > 0 && (
-  <>
-    {!showPaymentSummary && (
-      <button
-        type="button"
-        style={styles.paymentToggleBtn}
-        onClick={() => setShowPaymentSummary(true)}
-      >
-        Payment — ₦{grandTotal.toLocaleString()}
-      </button>
-    )}
+          {/* Payment toggle + summary panel */}
+          {cartItems.length > 0 && (
+            <>
+              {!showPaymentSummary && (
+                <button
+                  type="button"
+                  style={styles.paymentToggleBtn}
+                  onClick={() => setShowPaymentSummary(true)}
+                >
+                  Payment — ₦{grandTotal.toLocaleString()}
+                </button>
+              )}
 
-    {showPaymentSummary && (
-      <div style={styles.paymentSummaryPanel}>
-        <button
-          type="button"
-          style={styles.summaryCloseBtn}
-          onClick={() => setShowPaymentSummary(false)}
-          aria-label="Close payment summary"
-        >
-          ✕
-        </button>
+              {showPaymentSummary && (
+                <div style={styles.paymentSummaryPanel}>
+                  <button
+                    type="button"
+                    style={styles.summaryCloseBtn}
+                    onClick={() => setShowPaymentSummary(false)}
+                    aria-label="Close payment summary"
+                  >
+                    ✕
+                  </button>
 
-        <div style={styles.breakdownRow}>
-          <span>Subtotal</span>
-          <span>₦{itemsSubtotal.toLocaleString()}</span>
-        </div>
-        <div style={styles.breakdownRow}>
-          <span>Delivery</span>
-          <span>₦{DELIVERY_FEE.toLocaleString()}</span>
-        </div>
-        <hr style={styles.divider} />
-        <div style={styles.totalRow}>
-          <span>Total</span>
-          <span style={styles.totalAmount}>₦{grandTotal.toLocaleString()}</span>
-        </div>
+                  <div style={styles.breakdownRow}>
+                    <span>Subtotal</span>
+                    <span>₦{itemsSubtotal.toLocaleString()}</span>
+                  </div>
+                  <div style={styles.breakdownRow}>
+                    <span>Delivery</span>
+                    <span>₦{DELIVERY_FEE.toLocaleString()}</span>
+                  </div>
+                  <hr style={styles.divider} />
+                  <div style={styles.totalRow}>
+                    <span>Total</span>
+                    <span style={styles.totalAmount}>₦{grandTotal.toLocaleString()}</span>
+                  </div>
 
-        <button
-          type="submit"
-          style={{
-            ...styles.checkoutBtn,
-            backgroundColor: loading ? '#666666' : '#000000',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-          disabled={loading}
-        >
-          {loading ? 'Processing...' : user ? `Pay ₦${grandTotal.toLocaleString()}` : 'Log In to Checkout'}
-        </button>
-      </div>
-    )}
-  </>
-)}
+                  <button
+                    type="submit"
+                    style={{
+                      ...styles.checkoutBtn,
+                      backgroundColor: loading ? '#666666' : '#000000',
+                      cursor: loading ? 'not-allowed' : 'pointer'
+                    }}
+                    disabled={loading}
+                  >
+                    {loading ? 'Processing...' : user ? `Pay ₦${grandTotal.toLocaleString()}` : 'Log In to Checkout'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </form>
       </div>
 
@@ -308,6 +301,27 @@ if (imagePath) {
                 onClick={handleConfirmLogin}
               >
                 Log In
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Validation Warning Modal */}
+      {showValidationModal && (
+        <div style={modalStyles.overlay} onClick={(e) => e.stopPropagation()}>
+          <div style={modalStyles.container}>
+            <h3 style={modalStyles.title}>Incomplete Information</h3>
+            <p style={modalStyles.text}>
+              Please fill in all shipping and phone contact fields.
+            </p>
+            <div style={modalStyles.buttonRow}>
+              <button 
+                type="button" 
+                style={modalStyles.confirmBtn} 
+                onClick={() => setShowValidationModal(false)}
+              >
+                OK
               </button>
             </div>
           </div>
@@ -495,8 +509,8 @@ const styles = {
     padding: '16px',
     paddingBottom: '130px',
     backgroundColor: '#fafafa',
-      minHeight: 0,
-  WebkitOverflowScrolling: 'touch'
+    minHeight: 0,
+    WebkitOverflowScrolling: 'touch'
   },
   emptyContainer: {
     display: 'flex',
@@ -623,17 +637,17 @@ const styles = {
     width: '100%',
     backgroundColor: '#ffffff'
   },
- footer: {
-  position: 'fixed',
-  bottom: 0,
-  right: 0,
-  width: '40vw',
-  padding: '16px',
-  borderTop: '1px solid #f0f0f0',
-  backgroundColor: '#ffffff',
-  boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
-  zIndex: 10
-},
+  footer: {
+    position: 'fixed',
+    bottom: 0,
+    right: 0,
+    width: '40vw',
+    padding: '16px',
+    borderTop: '1px solid #f0f0f0',
+    backgroundColor: '#ffffff',
+    boxShadow: '0 -2px 10px rgba(0,0,0,0.08)',
+    zIndex: 10
+  },
   breakdownRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -670,45 +684,45 @@ const styles = {
     fontWeight: '700'
   },
   paymentToggleBtn: {
-  position: 'fixed',
-top: '70vh',
-  right: '20px',
-  padding: '12px 20px',
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: '8px',
-  fontSize: '13px',
-  fontWeight: '700',
-  cursor: 'pointer',
-  zIndex: 15,
-  boxShadow: '0 2px 10px rgba(0,0,0,0.25)'
-},
-paymentSummaryPanel: {
-  position: 'fixed',
-  top: '70vh',
-  right: '20px',
-  width: '320px',
-  maxWidth: 'calc(100vw - 40px)',
-  padding: '16px',
-  backgroundColor: '#ffffff',
-  borderRadius: '10px',
-  boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-  zIndex: 15
-},
-summaryCloseBtn: {
-  position: 'absolute',
-  top: '8px',
-  right: '8px',
-  background: '#f5f5f7',
-  border: 'none',
-  borderRadius: '50%',
-  width: '22px',
-  height: '22px',
-  fontSize: '11px',
-  cursor: 'pointer',
-  color: '#555'
-}
+    position: 'fixed',
+    top: '70vh',
+    right: '20px',
+    padding: '12px 20px',
+    backgroundColor: '#000000',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    zIndex: 15,
+    boxShadow: '0 2px 10px rgba(0,0,0,0.25)'
+  },
+  paymentSummaryPanel: {
+    position: 'fixed',
+    top: '70vh',
+    right: '20px',
+    width: '320px',
+    maxWidth: 'calc(100vw - 40px)',
+    padding: '16px',
+    backgroundColor: '#ffffff',
+    borderRadius: '10px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+    zIndex: 15
+  },
+  summaryCloseBtn: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
+    background: '#f5f5f7',
+    border: 'none',
+    borderRadius: '50%',
+    width: '22px',
+    height: '22px',
+    fontSize: '11px',
+    cursor: 'pointer',
+    color: '#555'
+  }
 };
 
 export default Cart;
