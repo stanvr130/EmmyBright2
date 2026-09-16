@@ -39,11 +39,15 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
       return;
     }
 
-    if (!deliveryData.streetAddress || !deliveryData.city || !deliveryData.state || !deliveryData.phone) {
-      alert('Please fill in all shipping and phone contact fields.');
-      return;
-    }
+  const trimmedAddress = deliveryData.streetAddress?.trim();
+const trimmedCity = deliveryData.city?.trim();
+const trimmedState = deliveryData.state?.trim();
+const trimmedPhone = deliveryData.phone?.trim();
 
+if (!trimmedAddress || !trimmedCity || !trimmedState || !trimmedPhone) {
+  alert('Please fill in all shipping and phone contact fields.');
+  return;
+}
     setLoading(true);
 
     try {
@@ -98,7 +102,7 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
         </div>
 
         {/* Main Form Container */}
-        <form onSubmit={handleCheckout} style={styles.formWrapper}>
+        <form onSubmit={handleCheckout} style={styles.formWrapper} noValidate>
           <div style={styles.itemsContainer}>
             {cartItems.length === 0 ? (
               <div style={styles.emptyContainer}>
