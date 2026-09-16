@@ -667,7 +667,7 @@ const styles = {
   },
   paymentToggleBtn: {
   position: 'fixed',
-  bottom: '20px',
+  bottom: 'min(70vh, calc(100vh - 220px))',
   right: '20px',
   padding: '12px 20px',
   backgroundColor: '#000000',
@@ -682,7 +682,7 @@ const styles = {
 },
 paymentSummaryPanel: {
   position: 'fixed',
-  bottom: '20px',
+  bottom: 'min(70vh, calc(100vh - 220px))',
   right: '20px',
   width: '320px',
   maxWidth: 'calc(100vw - 40px)',
