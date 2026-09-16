@@ -8,6 +8,7 @@ function Cart({ isOpen, onClose, cartItems = [], onUpdateQuantity, onRemoveItem,
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showPaymentSummary, setShowPaymentSummary] = useState(false);
   const [deliveryData, setDeliveryData] = useState({
     streetAddress: '',
     city: '',
@@ -225,35 +226,59 @@ if (imagePath) {
           </div>
 
           {/* Footer Controls */}
-  {cartItems.length > 0 && (
-  <div className="cart-footer-fixed" style={styles.footer}>
-              <div style={styles.breakdownRow}>
-                <span>Subtotal</span>
-                <span>₦{itemsSubtotal.toLocaleString()}</span>
-              </div>
-              <div style={styles.breakdownRow}>
-                <span>Delivery</span>
-                <span>₦{DELIVERY_FEE.toLocaleString()}</span>
-              </div>
-              <hr style={styles.divider} />
-              <div style={styles.totalRow}>
-                <span>Total</span>
-                <span style={styles.totalAmount}>₦{grandTotal.toLocaleString()}</span>
-              </div>
+ {/* Payment toggle + summary panel */}
+{cartItems.length > 0 && (
+  <>
+    {!showPaymentSummary && (
+      <button
+        type="button"
+        style={styles.paymentToggleBtn}
+        onClick={() => setShowPaymentSummary(true)}
+      >
+        Payment — ₦{grandTotal.toLocaleString()}
+      </button>
+    )}
 
-              <button 
-                type="submit"
-                style={{
-                  ...styles.checkoutBtn,
-                  backgroundColor: loading ? '#666666' : '#000000',
-                  cursor: loading ? 'not-allowed' : 'pointer'
-                }} 
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : user ? `Pay ₦${grandTotal.toLocaleString()}` : 'Log In to Checkout'}
-              </button>
-            </div>
-          )}
+    {showPaymentSummary && (
+      <div style={styles.paymentSummaryPanel}>
+        <button
+          type="button"
+          style={styles.summaryCloseBtn}
+          onClick={() => setShowPaymentSummary(false)}
+          aria-label="Close payment summary"
+        >
+          ✕
+        </button>
+
+        <div style={styles.breakdownRow}>
+          <span>Subtotal</span>
+          <span>₦{itemsSubtotal.toLocaleString()}</span>
+        </div>
+        <div style={styles.breakdownRow}>
+          <span>Delivery</span>
+          <span>₦{DELIVERY_FEE.toLocaleString()}</span>
+        </div>
+        <hr style={styles.divider} />
+        <div style={styles.totalRow}>
+          <span>Total</span>
+          <span style={styles.totalAmount}>₦{grandTotal.toLocaleString()}</span>
+        </div>
+
+        <button
+          type="submit"
+          style={{
+            ...styles.checkoutBtn,
+            backgroundColor: loading ? '#666666' : '#000000',
+            cursor: loading ? 'not-allowed' : 'pointer'
+          }}
+          disabled={loading}
+        >
+          {loading ? 'Processing...' : user ? `Pay ₦${grandTotal.toLocaleString()}` : 'Log In to Checkout'}
+        </button>
+      </div>
+    )}
+  </>
+)}
         </form>
       </div>
 
@@ -639,7 +664,47 @@ const styles = {
     borderRadius: '6px',
     fontSize: '13px',
     fontWeight: '700'
-  }
+  },
+  paymentToggleBtn: {
+  position: 'fixed',
+  bottom: '20px',
+  right: '20px',
+  padding: '12px 20px',
+  backgroundColor: '#000000',
+  color: '#ffffff',
+  border: 'none',
+  borderRadius: '8px',
+  fontSize: '13px',
+  fontWeight: '700',
+  cursor: 'pointer',
+  zIndex: 15,
+  boxShadow: '0 2px 10px rgba(0,0,0,0.25)'
+},
+paymentSummaryPanel: {
+  position: 'fixed',
+  bottom: '20px',
+  right: '20px',
+  width: '320px',
+  maxWidth: 'calc(100vw - 40px)',
+  padding: '16px',
+  backgroundColor: '#ffffff',
+  borderRadius: '10px',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+  zIndex: 15
+},
+summaryCloseBtn: {
+  position: 'absolute',
+  top: '8px',
+  right: '8px',
+  background: '#f5f5f7',
+  border: 'none',
+  borderRadius: '50%',
+  width: '22px',
+  height: '22px',
+  fontSize: '11px',
+  cursor: 'pointer',
+  color: '#555'
+}
 };
 
 export default Cart;
