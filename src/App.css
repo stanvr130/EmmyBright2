@@ -765,8 +765,11 @@
   }
 
   .category-bar-item {
-    font-size: 10.5px;
-    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1a1a1a;
+    border-color: #cfcfcf;
+    padding: 5px 11px;
     border-radius: 12px;
   }
 
@@ -818,5 +821,25 @@
   .category-bar-item {
     padding: 4px 11px;
     font-size: 11px;
+  }
+}
+
+/* ==========================================
+   Desktop-only: widen main layout to ~95%
+   of the viewport and reduce side gutters
+   ========================================== */
+@media (min-width: 1024px) {
+  .navbar {
+    padding: 8.6px 2.5%;
+  }
+
+  .nav-container,
+  .main-content,
+  .category-bar {
+    max-width: 95vw;
+  }
+
+  .main-content {
+    padding: 0 2.5%;
   }
 }
