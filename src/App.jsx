@@ -426,35 +426,18 @@ function App() {
           <div className="out-of-stock-badge">OUT OF STOCK</div>
         )}
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleToggleWishlist(productId);
-          }}
-          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-          title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-          style={{
-            position: 'absolute',
-            top: '7px',
-            right: '7px',
-            zIndex: 3,
-            width: '24px',
-            height: '24px',
-            border: 'none',
-            borderRadius: '50%',
-            backgroundColor: 'rgba(255,255,255,0.9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            fontSize: '13px',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-            color: wishlisted ? '#cc0000' : '#999'
-          }}
-        >
-          {wishlisted ? '♥' : '♡'}
-        </button>
+   <button
+  type="button"
+  className={`wishlist-heart-btn ${wishlisted ? 'wishlisted' : ''}`}
+  onClick={(e) => {
+    e.stopPropagation();
+    handleToggleWishlist(productId);
+  }}
+  aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+  title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+>
+  {wishlisted ? '♥' : '♡'}
+</button>
 
         <div className="image-wrapper">
           {fullImageUrl ? (
