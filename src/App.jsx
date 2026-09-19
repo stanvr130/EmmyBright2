@@ -379,7 +379,7 @@ function App() {
     return a.localeCompare(b);
   });
 
-  const displayName = user?.name || (user?.email ? user.email.split('@')[0] : 'Account');
+const displayName = (user?.name ? user.name.trim().split(' ')[0] : null) || (user?.email ? user.email.split('@')[0] : 'Account');
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   const getProductImageUrl = (product) => {
@@ -636,49 +636,49 @@ function App() {
 
           {/* Desktop nav links: Shop, Wishlist, Hi {name}/Login, Contact Us, Admin (if applicable) */}
           <div className="desktop-nav-links-only">
-            <NavLink 
-              to="/" 
-              end
-              className="link-item" 
-              onClick={handleCloseProductView}
-            >
-              Shop
-            </NavLink>
+  <NavLink 
+    to="/" 
+    end
+    className="link-item" 
+    onClick={handleCloseProductView}
+  >
+    Shop
+  </NavLink>
 
-            <NavLink 
-              to="/wishlist" 
-              className="link-item"
-              onClick={handleCloseProductView}
-            >
-              ♡ Wishlist
-            </NavLink>
+  <NavLink 
+    to="/contact" 
+    className="link-item"
+  >
+    Contact us
+  </NavLink>
 
-            {user ? (
-              <NavLink to="/account" className="link-item">
-                Hi {displayName}
-              </NavLink>
-            ) : (
-              <NavLink to="/login" className="link-item">
-                Login
-              </NavLink>
-            )}
+  <NavLink 
+    to="/wishlist" 
+    className="link-item"
+    onClick={handleCloseProductView}
+  >
+    ♡ Wishlist
+  </NavLink>
 
-            <NavLink 
-              to="/contact" 
-              className="link-item"
-            >
-              Contact Us
-            </NavLink>
+  {user ? (
+    <NavLink to="/account" className="link-item">
+      Hi {displayName}
+    </NavLink>
+  ) : (
+    <NavLink to="/login" className="link-item">
+      Login
+    </NavLink>
+  )}
 
-            {isAdmin && (
-              <NavLink 
-                to="/admin" 
-                className="link-item admin-link"
-              >
-                ⚙️ Admin Panel
-              </NavLink>
-            )}
-          </div>
+  {isAdmin && (
+    <NavLink 
+      to="/admin" 
+      className="link-item admin-link"
+    >
+      ⚙️ Admin panel
+    </NavLink>
+  )}
+</div>
           
           {location.pathname === '/' && (
             <div className="search-container">
