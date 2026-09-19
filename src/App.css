@@ -181,8 +181,8 @@
   border-bottom: 2px solid #1a1a1a;
   padding-bottom: 6px;
   display: inline-block;
+  color: #1a1a1a;
 }
-
 /* Product grid — cell width trimmed ~30% (145px -> 102px) so more cards
    fit per row while keeping the same responsive auto-fill behavior */
 .grid {
