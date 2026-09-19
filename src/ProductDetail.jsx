@@ -13,7 +13,9 @@ export default function ProductDetail({
   setDeliveryData,
   getProductImageUrl,
   normalizeVariantId,
-  styles
+  styles,
+  isInWishlist,
+  handleToggleWishlist
 }) {
   const [isImageExpanded, setIsImageExpanded] = useState(false);
 
@@ -36,6 +38,7 @@ export default function ProductDetail({
   );
 
   const imageUrl = getProductImageUrl(selectedProduct);
+  const wishlisted = isInWishlist ? isInWishlist(selectedProductId) : false;
 
   return (
     <div className="single-view-container">
@@ -45,7 +48,36 @@ export default function ProductDetail({
 
       <div className="details-flex-layout">
         {/* Compact Product Image Column */}
-        <div className="single-image-column">
+        <div className="single-image-column" style={{ position: 'relative' }}>
+          {handleToggleWishlist && (
+            <button
+              type="button"
+              onClick={() => handleToggleWishlist(selectedProductId)}
+              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                zIndex: 3,
+                width: '34px',
+                height: '34px',
+                border: 'none',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255,255,255,0.92)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '18px',
+                boxShadow: '0 1px 6px rgba(0,0,0,0.2)',
+                color: wishlisted ? '#cc0000' : '#999'
+              }}
+            >
+              {wishlisted ? '♥' : '♡'}
+            </button>
+          )}
+
           {imageUrl ? (
             <img 
               src={imageUrl} 

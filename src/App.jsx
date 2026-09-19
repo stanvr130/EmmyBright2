@@ -63,6 +63,9 @@ function App() {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  // WISHLIST STATE
+  const [wishlistItems, setWishlistItems] = useState([]);
+
   // DELIVERY TRACKER STATE
   const [deliveryData, setDeliveryData] = useState(() => {
     const savedDelivery = localStorage.getItem('eb_deliveryData');
@@ -142,10 +145,44 @@ function App() {
     }
   };
 
+  const fetchWishlist = async () => {
+    if (!localStorage.getItem('authToken')) {
+      setWishlistItems([]);
+      return;
+    }
+    try {
+      const response = await api.get('/wishlist');
+      setWishlistItems(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error('Error fetching wishlist:', err);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    fetchWishlist();
   }, []);
+
+  const isInWishlist = (productId) => wishlistItems.some(item => (item.id || item._id) === productId);
+
+  const handleToggleWishlist = async (productId) => {
+    if (!localStorage.getItem('authToken')) {
+      navigate('/login');
+      return;
+    }
+    try {
+      if (isInWishlist(productId)) {
+        await api.delete(`/wishlist/${productId}`);
+        setWishlistItems((prev) => prev.filter(item => (item.id || item._id) !== productId));
+      } else {
+        await api.post('/wishlist', { productId });
+        fetchWishlist(); // refetch to get full product data for the new item
+      }
+    } catch (err) {
+      console.error('Error updating wishlist:', err);
+    }
+  };
 
   const handleAuthSuccess = async (authenticatedUser) => {
     setUser(authenticatedUser);
@@ -180,6 +217,8 @@ function App() {
         setDeliveryData(deliveryResponse.data.deliveryData);
         localStorage.setItem('eb_deliveryData', JSON.stringify(deliveryResponse.data.deliveryData));
       }
+
+      fetchWishlist();
     } catch (err) {
       console.error("Error restoring remote database variables context on authorization sync:", err);
     }
@@ -211,6 +250,7 @@ function App() {
       
       setUser(null);
       setCartItems([]);
+      setWishlistItems([]);
       setDeliveryData({
         type: 'standard',
         fee: 3000,
@@ -364,6 +404,7 @@ function App() {
     const cartItem = cartItems.find(item => (item.id || item._id) === productId);
     const fullImageUrl = getProductImageUrl(product);
     const productVariants = product.variants || [];
+    const wishlisted = isInWishlist(productId);
     
     const totalStock = productVariants.length > 0
       ? productVariants.reduce((sum, v) => sum + Number(v.stock ?? v.quantity ?? 0), 0)
@@ -384,6 +425,36 @@ function App() {
         {isOutOfStock && (
           <div className="out-of-stock-badge">OUT OF STOCK</div>
         )}
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleWishlist(productId);
+          }}
+          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          style={{
+            position: 'absolute',
+            top: '7px',
+            right: '7px',
+            zIndex: 3,
+            width: '24px',
+            height: '24px',
+            border: 'none',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            fontSize: '13px',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+            color: wishlisted ? '#cc0000' : '#999'
+          }}
+        >
+          {wishlisted ? '♥' : '♡'}
+        </button>
 
         <div className="image-wrapper">
           {fullImageUrl ? (
@@ -484,6 +555,8 @@ function App() {
         getProductImageUrl={getProductImageUrl}
         normalizeVariantId={normalizeVariantId}
         styles={styles}
+        isInWishlist={isInWishlist}
+        handleToggleWishlist={handleToggleWishlist}
       />
     ) : (
       <>
@@ -507,6 +580,38 @@ function App() {
           </section>
         )}
       </>
+    )
+  );
+
+  const wishlistView = (
+    selectedProduct ? (
+      <ProductDetail 
+        selectedProduct={selectedProduct}
+        cartItems={cartItems}
+        selectedSize={selectedSize}
+        setSelectedSize={setSelectedSize}
+        handleCloseProductView={handleCloseProductView}
+        handleAddToCart={handleAddToCart}
+        handleUpdateQuantity={handleUpdateQuantity}
+        deliveryData={deliveryData}
+        setDeliveryData={setDeliveryData}
+        getProductImageUrl={getProductImageUrl}
+        normalizeVariantId={normalizeVariantId}
+        styles={styles}
+        isInWishlist={isInWishlist}
+        handleToggleWishlist={handleToggleWishlist}
+      />
+    ) : (
+      <section className="section">
+        <h2 className="section-title">Your Wishlist</h2>
+        {wishlistItems.length > 0 ? (
+          <div className="grid">
+            {wishlistItems.map((product, index) => renderProductCard(product, index))}
+          </div>
+        ) : (
+          <p className="no-results-text">You haven't saved any products yet.</p>
+        )}
+      </section>
     )
   );
 
@@ -546,7 +651,7 @@ function App() {
             </div>
           </div>
 
-          {/* Desktop nav links: Shop, Hi {name}/Login, Contact Us, Admin (if applicable) */}
+          {/* Desktop nav links: Shop, Wishlist, Hi {name}/Login, Contact Us, Admin (if applicable) */}
           <div className="desktop-nav-links-only">
             <NavLink 
               to="/" 
@@ -555,6 +660,14 @@ function App() {
               onClick={handleCloseProductView}
             >
               Shop
+            </NavLink>
+
+            <NavLink 
+              to="/wishlist" 
+              className="link-item"
+              onClick={handleCloseProductView}
+            >
+              ♡ Wishlist
             </NavLink>
 
             {user ? (
@@ -648,6 +761,17 @@ function App() {
             ✨ Shop
           </NavLink>
 
+          <NavLink 
+            to="/wishlist" 
+            className="sidebar-item"
+            onClick={() => {
+              handleCloseProductView();
+              setIsSidebarOpen(false);
+            }}
+          >
+            ♡ Wishlist
+          </NavLink>
+
           {user ? (
             <NavLink 
               to="/account" 
@@ -730,6 +854,13 @@ function App() {
         >
           ✨ Shop
         </NavLink>
+        <NavLink 
+          to="/wishlist" 
+          className="mobile-bar-item"
+          onClick={handleCloseProductView}
+        >
+          ♡ Wishlist
+        </NavLink>
         {isAdmin && (
           <NavLink 
             to="/admin" 
@@ -773,6 +904,15 @@ function App() {
       <main className="main-content">
         <Routes>
           <Route path="/" element={shopView} />
+
+          <Route 
+            path="/wishlist" 
+            element={
+              <ProtectedRoute user={user}>
+                {wishlistView}
+              </ProtectedRoute>
+            } 
+          />
 
           <Route path="/contact" element={<ContactUs />} />
 
