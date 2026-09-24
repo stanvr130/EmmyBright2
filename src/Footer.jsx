@@ -11,6 +11,8 @@ export default function Footer() {
           <Link to="/contact" style={styles.link}>Contact Us</Link>
           <span style={styles.divider}>•</span>
           <Link to="/terms" style={styles.link}>Terms of Service</Link>
+          <span style={styles.divider}>•</span>
+          <Link to="/privacy" style={styles.link}>Privacy Policy</Link>
         </nav>
 
         <p style={styles.copyright}>

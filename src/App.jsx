@@ -8,6 +8,7 @@ import ContactUs from './ContactUs';
 import ProtectedRoute from './ProtectedRoute';
 import ProductDetail from './ProductDetail';
 import TermsOfService from './TermsOfService';
+import PrivacyPolicy from './PrivacyPolicy';
 import Footer from './Footer';
 import api from './api/api'; 
 import './App.css';
@@ -901,6 +902,7 @@ function App() {
 
           <Route path="/contact" element={<ContactUs />} />
            <Route path="/terms" element={<TermsOfService />} />
+           <Route path="/privacy" element={<PrivacyPolicy />} />
 
           <Route
             path="/login"
