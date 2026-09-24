@@ -7,6 +7,8 @@ import AccountPage from './AccountPage';
 import ContactUs from './ContactUs';
 import ProtectedRoute from './ProtectedRoute';
 import ProductDetail from './ProductDetail';
+import TermsOfService from './TermsOfService';
+import Footer from './Footer';
 import api from './api/api'; 
 import './App.css';
 // relaxed-liger-24ef08.netlify.app
@@ -79,7 +81,7 @@ function App() {
 
   const [logoSrc, setLogoSrc] = useState(LOGO_SRC);
   const [logoRetried, setLogoRetried] = useState(false);
- const backendUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
+  const backendUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -379,7 +381,7 @@ function App() {
     return a.localeCompare(b);
   });
 
-const displayName = (user?.name ? user.name.trim().split(' ')[0] : null) || (user?.email ? user.email.split('@')[0] : 'Account');
+  const displayName = (user?.name ? user.name.trim().split(' ')[0] : null) || (user?.email ? user.email.split('@')[0] : 'Account');
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   const getProductImageUrl = (product) => {
@@ -426,18 +428,18 @@ const displayName = (user?.name ? user.name.trim().split(' ')[0] : null) || (use
           <div className="out-of-stock-badge">OUT OF STOCK</div>
         )}
 
-   <button
-  type="button"
-  className={`wishlist-heart-btn ${wishlisted ? 'wishlisted' : ''}`}
-  onClick={(e) => {
-    e.stopPropagation();
-    handleToggleWishlist(productId);
-  }}
-  aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-  title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
->
-  {wishlisted ? '♥' : '♡'}
-</button>
+        <button
+          type="button"
+          className={`wishlist-heart-btn ${wishlisted ? 'wishlisted' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleWishlist(productId);
+          }}
+          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+        >
+          {wishlisted ? '♥' : '♡'}
+        </button>
 
         <div className="image-wrapper">
           {fullImageUrl ? (
@@ -636,49 +638,49 @@ const displayName = (user?.name ? user.name.trim().split(' ')[0] : null) || (use
 
           {/* Desktop nav links: Shop, Wishlist, Hi {name}/Login, Contact Us, Admin (if applicable) */}
           <div className="desktop-nav-links-only">
-  <NavLink 
-    to="/" 
-    end
-    className="link-item" 
-    onClick={handleCloseProductView}
-  >
-    Shop
-  </NavLink>
+            <NavLink 
+              to="/" 
+              end
+              className="link-item" 
+              onClick={handleCloseProductView}
+            >
+              Shop
+            </NavLink>
 
-  <NavLink 
-    to="/contact" 
-    className="link-item"
-  >
-    Contact us
-  </NavLink>
+            <NavLink 
+              to="/contact" 
+              className="link-item"
+            >
+              Contact us
+            </NavLink>
 
-  <NavLink 
-    to="/wishlist" 
-    className="link-item"
-    onClick={handleCloseProductView}
-  >
-    ♡ Wishlist
-  </NavLink>
+            <NavLink 
+              to="/wishlist" 
+              className="link-item"
+              onClick={handleCloseProductView}
+            >
+              ♡ Wishlist
+            </NavLink>
 
-  {user ? (
-    <NavLink to="/account" className="link-item">
-      Hi {displayName}
-    </NavLink>
-  ) : (
-    <NavLink to="/login" className="link-item">
-      Login
-    </NavLink>
-  )}
+            {user ? (
+              <NavLink to="/account" className="link-item">
+                Hi {displayName}
+              </NavLink>
+            ) : (
+              <NavLink to="/login" className="link-item">
+                Login
+              </NavLink>
+            )}
 
-  {isAdmin && (
-    <NavLink 
-      to="/admin" 
-      className="link-item admin-link"
-    >
-      ⚙️ Admin panel
-    </NavLink>
-  )}
-</div>
+            {isAdmin && (
+              <NavLink 
+                to="/admin" 
+                className="link-item admin-link"
+              >
+                ⚙️ Admin panel
+              </NavLink>
+            )}
+          </div>
           
           {location.pathname === '/' && (
             <div className="search-container">
@@ -938,7 +940,9 @@ const displayName = (user?.name ? user.name.trim().split(' ')[0] : null) || (use
           
           <Route path="*" element={<div style={{ textAlign: 'center', padding: '40px' }}>404 - Page Not Found</div>} />
         </Routes>
+
       </main>
+      <Footer />
     </div>
   );
 }
