@@ -900,6 +900,7 @@ function App() {
           />
 
           <Route path="/contact" element={<ContactUs />} />
+           <Route path="/terms" element={<TermsOfService />} />
 
           <Route
             path="/login"
