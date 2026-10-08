@@ -10,6 +10,7 @@ import ProductDetail from './ProductDetail';
 import TermsOfService from './TermsOfService';
 import PrivacyPolicy from './PrivacyPolicy';
 import Footer from './Footer';
+import WhatsAppButton from './WhatsAppButton';
 import api from './api/api'; 
 import './App.css';
 // relaxed-liger-24ef08.netlify.app
@@ -946,6 +947,7 @@ function App() {
 
       </main>
       <Footer />
+      <WhatsAppButton />
     </div>
   );
 }

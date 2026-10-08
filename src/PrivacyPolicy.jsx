@@ -82,7 +82,7 @@ function PrivacyPolicy() {
 
       <div style={sectionStyle}>
         <p style={paragraphStyle}>
-          At <strong>EmmyBright</strong> , protecting the privacy and security of our customers and site visitors ("you" or "your") is a top priority.
+          At <strong>EmmyBright</strong> , protecting the privacy and security of our customers and site visitors  is a top priority.
         </p>
         <p style={paragraphStyle}>
           This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information when you visit or make a purchase from our website.
