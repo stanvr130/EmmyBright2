@@ -65,3 +65,16 @@ const styles = {
     margin: 0
   }
 };
+// TXT	
+// resend._domainkey
+// p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDZC+bkBe5KzYi/x0nnEXx1J6mvm1O6flDcbnhuSSq1gCImU8sIlwme6aI1xD/djxGa7b7NeGA1xCQ3dz6hcaAAs1kHfMS/iCyswsoskQQtEjfZYUauoLfqwsQvpyGWpMPdPd9+2MmCxWUFU1vKLWEUNOw3Fg3cXEy+hz2OaHsSJQIDAQAB
+// // Auto
+// Type	Name	Content	TTL
+// CNAME	
+// rsend
+// rsend-euw1.forge.rmta.net
+// Auto
+// CNAME	
+// send
+// send.forge.rmta.net
+// Auto

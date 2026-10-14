@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from './api/api';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const GOOGLE_SCRIPT_ID = 'google-identity-services';
+
+// Google's script is initialized once per page load; this always forwards
+// the sign-in result to whichever Auth screen is currently mounted.
+let googleInitialized = false;
+let googleCredentialHandler = null;
 
 function Auth({ onAuthSuccess }) {
   const [isLoginView, setIsLoginView] = useState(true);
@@ -23,6 +31,11 @@ function Auth({ onAuthSuccess }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
+  // Google sign-in state
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleFailed, setGoogleFailed] = useState(false);
+  const googleBtnRef = useRef(null);
+
   // Responsive state tracking
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -43,6 +56,124 @@ function Auth({ onAuthSuccess }) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  // --- Google sign-in / sign-up (one tap, replaces the OTP step) ---
+
+  const handleGoogleCredential = async (response) => {
+    const credential = response?.credential;
+    if (!credential) return;
+
+    setAlert({ type: '', message: '' });
+    setLoading(true);
+
+    try {
+      const { data } = await api.post('/auth/google', { credential });
+      const token = data.accessToken || data.token;
+      const googleUser = data.user;
+
+      if (!token || !googleUser) {
+        throw new Error('Google sign-in did not return a session.');
+      }
+
+      // Google already verified the email, so there is no OTP step.
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('userData', JSON.stringify(googleUser));
+
+      setAlert({
+        type: 'success',
+        message: data.isNewUser ? 'Welcome to EmmyBright!' : 'Welcome back!',
+      });
+
+      setTimeout(() => {
+        onAuthSuccess(googleUser);
+      }, 600);
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        'Google sign-in failed. Please try again.';
+      setAlert({ type: 'error', message: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Always points at the latest handler (so it sees the latest onAuthSuccess)
+  const googleHandlerRef = useRef(handleGoogleCredential);
+  googleHandlerRef.current = handleGoogleCredential;
+
+  // Load Google's script and initialize it once
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+
+    let cancelled = false;
+
+    const init = () => {
+      if (cancelled || !window.google?.accounts?.id) return;
+
+      googleCredentialHandler = (resp) => googleHandlerRef.current(resp);
+
+      if (!googleInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (resp) => googleCredentialHandler?.(resp),
+        });
+        googleInitialized = true;
+      }
+
+      setGoogleReady(true);
+    };
+
+    const onError = () => {
+      if (!cancelled) setGoogleFailed(true);
+    };
+
+    if (window.google?.accounts?.id) {
+      init();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    let script = document.getElementById(GOOGLE_SCRIPT_ID);
+    if (!script) {
+      script = document.createElement('script');
+      script.id = GOOGLE_SCRIPT_ID;
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    script.addEventListener('load', init);
+    script.addEventListener('error', onError);
+
+    return () => {
+      cancelled = true;
+      script.removeEventListener('load', init);
+      script.removeEventListener('error', onError);
+    };
+  }, []);
+
+  // Draw Google's button whenever the main sign-in screen is showing
+  useEffect(() => {
+    if (!googleReady || !googleBtnRef.current) return;
+
+    const width = Math.max(200, Math.min(400, googleBtnRef.current.offsetWidth || 320));
+    googleBtnRef.current.innerHTML = '';
+
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'continue_with',
+      shape: 'rectangular',
+      logo_alignment: 'left',
+      width,
+    });
+  }, [googleReady, isLoginView, showOtpScreen, showForgotScreen, showResetScreen, isMobile]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -104,7 +235,7 @@ function Auth({ onAuthSuccess }) {
         await sendOtpRequest(formData.email);
         setShowOtpScreen(true);
       }
-  } catch (err) {
+    } catch (err) {
       console.error('Authentication error:', err);
       const errorMessage =
         err.response?.data?.message ||
@@ -495,6 +626,25 @@ function Auth({ onAuthSuccess }) {
             </div>
           )}
 
+          {/* Google: one tap for both sign in and sign up (hidden until configured) */}
+          {GOOGLE_CLIENT_ID && !googleFailed && (
+            <>
+              <div
+                ref={googleBtnRef}
+                style={{
+                  ...styles.googleBtnWrap,
+                  opacity: loading ? 0.6 : 1,
+                  pointerEvents: loading ? 'none' : 'auto',
+                }}
+              />
+              <div style={styles.dividerRow}>
+                <span style={styles.dividerLine} />
+                <span style={styles.dividerText}>or</span>
+                <span style={styles.dividerLine} />
+              </div>
+            </>
+          )}
+
           <form onSubmit={handleSubmit} style={styles.form}>
             {!isLoginView && (
               <div style={styles.inputGroup}>
@@ -765,6 +915,30 @@ const styles = {
     fontSize: '13px',
     marginBottom: '20px',
     border: '1px solid #C6F6D5',
+  },
+  googleBtnWrap: {
+    width: '100%',
+    minHeight: '44px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dividerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    margin: '20px 0',
+  },
+  dividerLine: {
+    flex: 1,
+    height: '1px',
+    backgroundColor: '#E2E8F0',
+  },
+  dividerText: {
+    fontSize: '12px',
+    color: '#888888',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
   },
 };
 
