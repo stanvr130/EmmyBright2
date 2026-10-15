@@ -11,6 +11,8 @@ import TermsOfService from './TermsOfService';
 import PrivacyPolicy from './PrivacyPolicy';
 import Footer from './Footer';
 import WhatsAppButton from './WhatsAppButton';
+import LandingHero from './LandingHero';
+import DeliveryAnimation from './DeliveryAnimation';
 import api from './api/api'; 
 import './App.css';
 // relaxed-liger-24ef08.netlify.app
@@ -309,13 +311,19 @@ function App() {
     setCartItems((prevItems) => prevItems.filter(item => (item.variantId || item.id || item._id) !== productId));
   };
 
-  // Selecting a category from the category bar or sidebar — filters the
-  // homepage to just that category. Passing null resets to "All".
+  // Selecting a category from the category bar, sidebar or landing tiles —
+  // filters the homepage to just that category. Passing null resets to "All".
   const handleSelectCategory = (categoryId) => {
     setActiveCategoryId(categoryId);
     handleCloseProductView();
     if (location.pathname !== '/') {
       navigate('/');
+    }
+    // Bring the product list into view after the category filter applies
+    if (categoryId !== null) {
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 0);
     }
   };
 
@@ -547,25 +555,39 @@ function App() {
       />
     ) : (
       <>
-        {sortedCategoryNames.length > 0 ? (
-          sortedCategoryNames.map((categoryName) => (
-            <section className="section" key={categoryName}>
-              <h2 className="section-title">{categoryName}</h2>
-              <div className="grid">
-                {productsByCategory[categoryName].map((product, index) =>
-                  renderProductCard(product, index)
-                )}
-              </div>
-            </section>
-          ))
-        ) : (
-          <section className="section">
-            <h2 className="section-title">Store Inventory</h2>
-            <p className="no-results-text">
-              {searchQuery || activeCategoryId !== null ? 'No matching products found.' : 'No products available yet.'}
-            </p>
-          </section>
+        {location.pathname === '/' && !searchQuery && activeCategoryId === null && (
+          <LandingHero
+            categories={categories}
+            products={products}
+            getProductImageUrl={getProductImageUrl}
+            onSelectCategory={handleSelectCategory}
+            onShopNow={() =>
+              document.getElementById('products')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+          />
         )}
+
+        <div id="products" className="products-anchor">
+          {sortedCategoryNames.length > 0 ? (
+            sortedCategoryNames.map((categoryName) => (
+              <section className="section" key={categoryName}>
+                <h2 className="section-title">{categoryName}</h2>
+                <div className="grid">
+                  {productsByCategory[categoryName].map((product, index) =>
+                    renderProductCard(product, index)
+                  )}
+                </div>
+              </section>
+            ))
+          ) : (
+            <section className="section">
+              <h2 className="section-title">Store Inventory</h2>
+              <p className="no-results-text">
+                {searchQuery || activeCategoryId !== null ? 'No matching products found.' : 'No products available yet.'}
+              </p>
+            </section>
+          )}
+        </div>
       </>
     )
   );
@@ -638,7 +660,7 @@ function App() {
             </div>
           </div>
 
-          {/* Desktop nav links: Shop, Wishlist, Hi {name}/Login, Contact Us, Admin (if applicable) */}
+          {/* Desktop nav links: Shop, Contact us, Wishlist, Hi {name}/Login, Admin (if applicable) */}
           <div className="desktop-nav-links-only">
             <NavLink 
               to="/" 
@@ -902,8 +924,8 @@ function App() {
           />
 
           <Route path="/contact" element={<ContactUs />} />
-           <Route path="/terms" element={<TermsOfService />} />
-           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           <Route
             path="/login"
@@ -948,6 +970,7 @@ function App() {
       </main>
       <Footer />
       <WhatsAppButton />
+      <DeliveryAnimation />
     </div>
   );
 }

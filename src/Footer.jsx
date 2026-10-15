@@ -31,7 +31,7 @@ const styles = {
     padding: '28px 16px'
   },
   inner: {
-    maxWidth: '900px',
+    maxWidth: '1800px',
     margin: '0 auto',
     textAlign: 'center'
   },
