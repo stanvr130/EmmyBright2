@@ -13,6 +13,7 @@ import Footer from './Footer';
 import WhatsAppButton from './WhatsAppButton';
 import LandingHero from './LandingHero';
 import DeliveryAnimation from './DeliveryAnimation';
+import ProductRow from './ProductRow';
 import api from './api/api'; 
 import './App.css';
 // relaxed-liger-24ef08.netlify.app
@@ -570,14 +571,22 @@ function App() {
         <div id="products" className="products-anchor">
           {sortedCategoryNames.length > 0 ? (
             sortedCategoryNames.map((categoryName) => (
-              <section className="section" key={categoryName}>
-                <h2 className="section-title">{categoryName}</h2>
-                <div className="grid">
-                  {productsByCategory[categoryName].map((product, index) =>
-                    renderProductCard(product, index)
-                  )}
-                </div>
-              </section>
+           <section className="section" key={categoryName}>
+  <h2 className="section-title">{categoryName}</h2>
+  {activeCategoryId === null && !searchQuery ? (
+    <ProductRow>
+      {productsByCategory[categoryName].map((product, index) =>
+        renderProductCard(product, index)
+      )}
+    </ProductRow>
+  ) : (
+    <div className="grid">
+      {productsByCategory[categoryName].map((product, index) =>
+        renderProductCard(product, index)
+      )}
+    </div>
+  )}
+</section>
             ))
           ) : (
             <section className="section">

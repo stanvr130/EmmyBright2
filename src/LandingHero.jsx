@@ -2,12 +2,7 @@ import React from 'react';
 
 const WHATSAPP_NUMBER = '2348139108077';
 
-const PERKS = [
-  { icon: '🚚', title: 'Quick delivery', text: 'Ibadan in 1–2 days, express within a day. 3–4 days outside Oyo State.' },
-{ icon: '🪡', title: 'Bespoke tailoring', text: 'Italian and Turkish tailoring, made to impress.' },
-  { icon: '💬', title: 'Sizing help', text: 'Not sure of your size? Chat with us on WhatsApp.' },
-  { icon: '🔒', title: 'Secure payment', text: 'Pay safely through Paystack.' }
-];
+
 
 export default function LandingHero({
   categories = [],
@@ -83,18 +78,6 @@ export default function LandingHero({
           </div>
         </section>
       )}
-
-      <section className="lh-perks">
-        {PERKS.map((perk, i) => (
-          <div className="lh-perk" key={perk.title} style={{ '--i': i }}>
-            <span className="lh-perk-icon">{perk.icon}</span>
-            <div>
-              <h3>{perk.title}</h3>
-              <p>{perk.text}</p>
-            </div>
-          </div>
-        ))}
-      </section>
     </>
   );
 }
