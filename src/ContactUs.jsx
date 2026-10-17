@@ -1,15 +1,36 @@
 import React from 'react';
 
-function ContactUs() {
-  const phoneNumber = '07069993785';
-  const whatsappNumber = '08139108077';
-  const whatsappLink = `https://wa.me/234${whatsappNumber.slice(1)}`;
-  const address = 'EmmyBright Plaza, Dugbe Queen Cinema, Ibadan';
-  const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+const CALL_NUMBERS = ['07069993785', '07036915922'];
+const WHATSAPP_NUMBERS = ['08139108077', '07036915922'];
 
+// 0803... -> 234803... (international format that wa.me needs)
+const toWhatsappLink = (number) => `https://wa.me/234${number.slice(1)}`;
+
+const address = 'EmmyBright Plaza, Dugbe Queen Cinema, Ibadan';
+const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+
+const pageCSS = `
+  .cu-number:hover,
+  .cu-number:focus-visible {
+    text-decoration: underline;
+    color: #111111;
+  }
+  .cu-card-link:hover {
+    border-color: #111111;
+  }
+  @media (max-width: 480px) {
+    .cu-container {
+      padding: 36px 20px !important;
+    }
+  }
+`;
+
+function ContactUs() {
   return (
     <div style={styles.pageWrapper}>
-      <div style={styles.container}>
+      <style>{pageCSS}</style>
+
+      <div className="cu-container" style={styles.container}>
         <div style={styles.headerGroup}>
           <span style={styles.brandBadge}>GET IN TOUCH</span>
           <h1 style={styles.pageTitle}>Contact Us</h1>
@@ -19,27 +40,51 @@ function ContactUs() {
         </div>
 
         <div style={styles.cardsGrid}>
-          <a href={`tel:${phoneNumber}`} style={styles.contactCard}>
+          {/* Call */}
+          <div style={styles.contactCard}>
             <div style={styles.iconWrapper}>
               <PhoneIcon />
             </div>
             <div style={styles.cardTextGroup}>
               <h3 style={styles.cardTitle}>Call Us</h3>
-              <p style={styles.cardDetail}>{phoneNumber}</p>
+              {CALL_NUMBERS.map((number) => (
+                <a key={number} href={`tel:${number}`} className="cu-number" style={styles.numberLink}>
+                  {number}
+                </a>
+              ))}
             </div>
-          </a>
+          </div>
 
-          <a href={whatsappLink} target="_blank" rel="noopener noreferrer" style={styles.contactCard}>
+          {/* WhatsApp */}
+          <div style={styles.contactCard}>
             <div style={styles.iconWrapper}>
               <WhatsappIcon />
             </div>
             <div style={styles.cardTextGroup}>
               <h3 style={styles.cardTitle}>Chat on WhatsApp</h3>
-              <p style={styles.cardDetail}>{whatsappNumber}</p>
+              {WHATSAPP_NUMBERS.map((number) => (
+                <a
+                  key={number}
+                  href={toWhatsappLink(number)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cu-number"
+                  style={styles.numberLink}
+                >
+                  {number}
+                </a>
+              ))}
             </div>
-          </a>
+          </div>
 
-          <a href={mapsLink} target="_blank" rel="noopener noreferrer" style={styles.contactCard}>
+          {/* Address */}
+          <a
+            href={mapsLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cu-card-link"
+            style={{ ...styles.contactCard, textDecoration: 'none' }}
+          >
             <div style={styles.iconWrapper}>
               <LocationIcon />
             </div>
@@ -142,7 +187,7 @@ const styles = {
     borderRadius: '10px',
     border: '1px solid #E2E8F0',
     backgroundColor: '#FAFAFA',
-    textDecoration: 'none',
+    textAlign: 'left',
   },
   iconWrapper: {
     width: '40px',
@@ -158,6 +203,8 @@ const styles = {
   cardTextGroup: {
     display: 'flex',
     flexDirection: 'column',
+    alignItems: 'flex-start',
+    minWidth: 0,
   },
   cardTitle: {
     fontSize: '13px',
@@ -170,6 +217,13 @@ const styles = {
     fontSize: '14px',
     color: '#444444',
     margin: 0,
+  },
+  numberLink: {
+    display: 'inline-block',
+    padding: '3px 0',
+    fontSize: '14px',
+    color: '#444444',
+    textDecoration: 'none',
   },
   footNoteText: {
     marginTop: '32px',

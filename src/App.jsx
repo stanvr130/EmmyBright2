@@ -9,6 +9,7 @@ import ProtectedRoute from './ProtectedRoute';
 import ProductDetail from './ProductDetail';
 import TermsOfService from './TermsOfService';
 import PrivacyPolicy from './PrivacyPolicy';
+import ReturnPolicy from './ReturnPolicy';
 import Footer from './Footer';
 import WhatsAppButton from './WhatsAppButton';
 import LandingHero from './LandingHero';
@@ -935,6 +936,7 @@ function App() {
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/returns" element={<ReturnPolicy />} />
 
           <Route
             path="/login"

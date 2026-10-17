@@ -9,7 +9,7 @@ export default function TermsOfService() {
       </div>
 
       <h1 style={styles.title}>Terms of Service</h1>
-      <p style={styles.lastUpdated}>Last updated: September 23, 2026</p>
+      <p style={styles.lastUpdated}>Last updated: October 17, 2026</p>
 
       <p style={styles.intro}>
         Welcome to EmmyBright. By placing an order with us, you agree to the following terms.
@@ -54,12 +54,13 @@ export default function TermsOfService() {
       <section style={styles.section}>
         <h2 style={styles.sectionHeading}>5. Exchanges</h2>
         <p style={styles.text}>
-          We do not offer refunds for change-of-mind purchases. Instead, items may be exchanged for another product or a group of products of equal value to the original purchase.
+          We do not offer refunds for change-of-mind purchases. Instead, items may be exchanged for another product or a group of products of equal value to the original purchase. Please see our{' '}
+          <Link to="/returns" style={styles.link}>Return &amp; Exchange Policy</Link> for full details.
         </p>
         <ul style={styles.list}>
           <li style={styles.listItem}>Exchange requests must be made within 3–5 days of delivery.</li>
           <li style={styles.listItem}>Items must be unworn, unused, with tags attached and in their original packaging.</li>
-          <li style={styles.listItem}>EmmyBright covers the cost of reshipping the replacement item to the customer.</li>
+          <li style={styles.listItem}>The customer pays the return shipping and the reshipping of the replacement item, unless the exchange is due to an error on EmmyBright's part (a damaged, defective or incorrect item), in which case EmmyBright covers both.</li>
           <li style={styles.listItem}>Full payment for the original order must be completed before any exchange delivery is carried out.</li>
         </ul>
       </section>
@@ -89,7 +90,10 @@ export default function TermsOfService() {
         <h2 style={styles.sectionHeading}>9. Contact</h2>
         <p style={styles.text}>
           For questions about these terms, exchanges, or an existing order, reach us via WhatsApp or email at{' '}
-          <a href="mailto:rotannamario@gmail.com" style={styles.link}>rotannamario@gmail.com</a>, or visit our{' '}
+          <a href="mailto:rotannamario@gmail.com" style={styles.link}>rotannamario@gmail.com</a>
+          {' '}or{' '}
+          <a href="mailto:stanleyokafor08@gmail.com" style={styles.link}>stanleyokafor08@gmail.com</a>
+          , or visit our{' '}
           <Link to="/contact" style={styles.link}>Contact Us</Link> page.
         </p>
       </section>
@@ -98,7 +102,7 @@ export default function TermsOfService() {
 }
 
 const styles = {
-  page: { maxWidth: '760px', margin: '0 auto', padding: '24px 16px 60px' },
+  page: { maxWidth: '760px', margin: '0 auto', padding: '24px 16px 60px', textAlign: 'left' },
   topBar: { marginBottom: '20px' },
   backLink: { textDecoration: 'none', color: '#555', fontSize: '14px', fontWeight: '600' },
   title: { fontSize: '26px', fontWeight: '700', color: '#1a1a1a', margin: '0 0 4px 0' },
