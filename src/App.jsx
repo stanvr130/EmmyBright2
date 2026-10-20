@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import Navbar from './Navbar';
 import Cart from './Cart'; 
 import Auth from './Auth'; 
 import AdminPanel from './AdminPanel';
@@ -15,9 +16,10 @@ import WhatsAppButton from './WhatsAppButton';
 import LandingHero from './LandingHero';
 import DeliveryAnimation from './DeliveryAnimation';
 import ProductRow from './ProductRow';
+import CategoriesPage from './CategoriesPage';
 import api from './api/api'; 
 import './App.css';
-// relaxed-liger-24ef08.netlify.app
+
 const styles = {
   singleViewContainer: {},
   backBtn: {},
@@ -41,15 +43,12 @@ const styles = {
   integratedDeliveryWrapper: {}
 };
 
-const LOGO_SRC = '/asset/logoo.png';
-const LOGO_FALLBACK = 'https://via.placeholder.com/50?text=EB';
-
 function App() {
   const [products, setProducts] = useState([]);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState(''); 
 
-  // CATEGORY FILTER STATE (for the new category bar)
+  // CATEGORY FILTER STATE (for the category bar)
   const [categories, setCategories] = useState([]);
   const [activeCategoryId, setActiveCategoryId] = useState(null); // null = "All"
   
@@ -60,9 +59,6 @@ function App() {
   // USER / AUTHENTICATION STATES
   const [user, setUser] = useState(null);
   const [checkedAuth, setCheckedAuth] = useState(false);
-  
-  // SIDEBAR NAVIGATION STATE
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // GLOBAL CART STATES
   const [cartItems, setCartItems] = useState(() => {
@@ -73,6 +69,18 @@ function App() {
 
   // WISHLIST STATE
   const [wishlistItems, setWishlistItems] = useState([]);
+
+  // WISHLIST POPUP (TOAST)
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const showToast = (message) => {
+    clearTimeout(toastTimerRef.current);
+    setToast({ message, id: Date.now() });
+    toastTimerRef.current = setTimeout(() => setToast(null), 2000);
+  };
+
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   // DELIVERY TRACKER STATE
   const [deliveryData, setDeliveryData] = useState(() => {
@@ -85,8 +93,6 @@ function App() {
     };
   });
 
-  const [logoSrc, setLogoSrc] = useState(LOGO_SRC);
-  const [logoRetried, setLogoRetried] = useState(false);
   const backendUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
   const navigate = useNavigate();
   const location = useLocation();
@@ -183,12 +189,15 @@ function App() {
       if (isInWishlist(productId)) {
         await api.delete(`/wishlist/${productId}`);
         setWishlistItems((prev) => prev.filter(item => (item.id || item._id) !== productId));
+        showToast('Item removed from wishlist');
       } else {
         await api.post('/wishlist', { productId });
+        showToast('Item added to wishlist');
         fetchWishlist(); // refetch to get full product data for the new item
       }
     } catch (err) {
       console.error('Error updating wishlist:', err);
+      showToast('Could not update wishlist. Please try again.');
     }
   };
 
@@ -329,30 +338,18 @@ function App() {
     }
   };
 
-  // Guarded logo error handler. First failure gets one retry with a
-  // cache-busting query param. If that also fails, we know it's a real
-  // 404/path issue (not a transient dev-mode double-fetch), so we log the
-  // exact URL that failed and fall back to the placeholder.
-  const handleLogoError = (e) => {
-    if (!logoRetried) {
-      setLogoRetried(true);
-      setLogoSrc(`${LOGO_SRC}?retry=${Date.now()}`);
-    } else {
-      console.error(
-        `EmmyBright logo failed to load. Last attempted URL: ${e.target.src} — ` +
-        `check that the file actually exists at public${LOGO_SRC} (case-sensitive, correct extension).`
-      );
-      setLogoSrc(LOGO_FALLBACK);
-    }
+  // Search box (lives inside Navbar): typing also closes any open product view
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    if (selectedProduct) handleCloseProductView();
   };
 
   if (!checkedAuth) {
     return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif' }}>Loading EmmyBright...</div>;
   }
 
-  // NOTE: the old hard gate that forced <Auth /> for every guest has been
-  // removed — the storefront, product details, search, and categories are
-  // now all public. Login is only required at /account, /admin, and at
+  // NOTE: the storefront, product details, search, and categories are all
+  // public. Login is only required at /account, /admin, /wishlist, and at
   // checkout (enforced inside Cart.jsx and ProtectedRoute.jsx).
 
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -374,9 +371,8 @@ function App() {
     return matchesSearch && matchesActiveCategory;
   });
 
-  // Group products dynamically by their real category name instead of
-  // hardcoding "suit"/"shoe" — any category created in the admin panel
-  // automatically gets its own section here.
+  // Group products dynamically by their real category name — any category
+  // created in the admin panel automatically gets its own section here.
   const productsByCategory = filteredProducts.reduce((groups, product) => {
     const categoryName = getCategoryName(product);
     if (!groups[categoryName]) {
@@ -393,8 +389,14 @@ function App() {
     return a.localeCompare(b);
   });
 
-  const displayName = (user?.name ? user.name.trim().split(' ')[0] : null) || (user?.email ? user.email.split('@')[0] : 'Account');
-  const isAdmin = user?.role?.toLowerCase() === 'admin';
+  // Clicking a category heading in the product list filters the page to that category
+  const handleCategoryHeadingClick = (categoryName) => {
+    const firstProduct = productsByCategory[categoryName]?.[0];
+    const categoryId = firstProduct ? getCategoryId(firstProduct) : null;
+    if (categoryId !== null) {
+      handleSelectCategory(categoryId);
+    }
+  };
 
   const getProductImageUrl = (product) => {
     if (!product || !product.image) return null;
@@ -514,48 +516,28 @@ function App() {
     );
   };
 
-  // Reusable category bar — small text, horizontal scroll, "All" + real categories
-  const renderCategoryBar = (extraClassName = '') => (
-    <div className={`category-bar ${extraClassName}`}>
-      <button
-        type="button"
-        className={`category-bar-item ${activeCategoryId === null ? 'active' : ''}`}
-        onClick={() => handleSelectCategory(null)}
-      >
-        All
-      </button>
-      {categories.map((cat) => (
-        <button
-          type="button"
-          key={cat.id}
-          className={`category-bar-item ${activeCategoryId === cat.id ? 'active' : ''}`}
-          onClick={() => handleSelectCategory(cat.id)}
-        >
-          {cat.name}
-        </button>
-      ))}
-    </div>
+  // One ProductDetail instance used by both the shop and wishlist views
+  const productDetailView = (
+    <ProductDetail 
+      selectedProduct={selectedProduct}
+      cartItems={cartItems}
+      selectedSize={selectedSize}
+      setSelectedSize={setSelectedSize}
+      handleCloseProductView={handleCloseProductView}
+      handleAddToCart={handleAddToCart}
+      handleUpdateQuantity={handleUpdateQuantity}
+      deliveryData={deliveryData}
+      setDeliveryData={setDeliveryData}
+      getProductImageUrl={getProductImageUrl}
+      normalizeVariantId={normalizeVariantId}
+      styles={styles}
+      isInWishlist={isInWishlist}
+      handleToggleWishlist={handleToggleWishlist}
+    />
   );
 
   const shopView = (
-    selectedProduct ? (
-      <ProductDetail 
-        selectedProduct={selectedProduct}
-        cartItems={cartItems}
-        selectedSize={selectedSize}
-        setSelectedSize={setSelectedSize}
-        handleCloseProductView={handleCloseProductView}
-        handleAddToCart={handleAddToCart}
-        handleUpdateQuantity={handleUpdateQuantity}
-        deliveryData={deliveryData}
-        setDeliveryData={setDeliveryData}
-        getProductImageUrl={getProductImageUrl}
-        normalizeVariantId={normalizeVariantId}
-        styles={styles}
-        isInWishlist={isInWishlist}
-        handleToggleWishlist={handleToggleWishlist}
-      />
-    ) : (
+    selectedProduct ? productDetailView : (
       <>
         {location.pathname === '/' && !searchQuery && activeCategoryId === null && (
           <LandingHero
@@ -572,22 +554,35 @@ function App() {
         <div id="products" className="products-anchor">
           {sortedCategoryNames.length > 0 ? (
             sortedCategoryNames.map((categoryName) => (
-           <section className="section" key={categoryName}>
-  <h2 className="section-title">{categoryName}</h2>
-  {activeCategoryId === null && !searchQuery ? (
-    <ProductRow>
-      {productsByCategory[categoryName].map((product, index) =>
-        renderProductCard(product, index)
-      )}
-    </ProductRow>
-  ) : (
-    <div className="grid">
-      {productsByCategory[categoryName].map((product, index) =>
-        renderProductCard(product, index)
-      )}
-    </div>
-  )}
-</section>
+              <section className="section" key={categoryName}>
+                <h2 className="section-title">
+                  {categoryName === 'Uncategorized' ? (
+                    categoryName
+                  ) : (
+                    <button
+                      type="button"
+                      className="section-title-link"
+                      title={`See ${categoryName} only`}
+                      onClick={() => handleCategoryHeadingClick(categoryName)}
+                    >
+                      {categoryName}
+                    </button>
+                  )}
+                </h2>
+                {activeCategoryId === null && !searchQuery ? (
+                  <ProductRow>
+                    {productsByCategory[categoryName].map((product, index) =>
+                      renderProductCard(product, index)
+                    )}
+                  </ProductRow>
+                ) : (
+                  <div className="grid">
+                    {productsByCategory[categoryName].map((product, index) =>
+                      renderProductCard(product, index)
+                    )}
+                  </div>
+                )}
+              </section>
             ))
           ) : (
             <section className="section">
@@ -603,24 +598,7 @@ function App() {
   );
 
   const wishlistView = (
-    selectedProduct ? (
-      <ProductDetail 
-        selectedProduct={selectedProduct}
-        cartItems={cartItems}
-        selectedSize={selectedSize}
-        setSelectedSize={setSelectedSize}
-        handleCloseProductView={handleCloseProductView}
-        handleAddToCart={handleAddToCart}
-        handleUpdateQuantity={handleUpdateQuantity}
-        deliveryData={deliveryData}
-        setDeliveryData={setDeliveryData}
-        getProductImageUrl={getProductImageUrl}
-        normalizeVariantId={normalizeVariantId}
-        styles={styles}
-        isInWishlist={isInWishlist}
-        handleToggleWishlist={handleToggleWishlist}
-      />
-    ) : (
+    selectedProduct ? productDetailView : (
       <section className="section">
         <h2 className="section-title">Your Wishlist</h2>
         {wishlistItems.length > 0 ? (
@@ -636,274 +614,18 @@ function App() {
 
   return (
     <div className="page-container">
-      <nav className="navbar">
-        <div className="nav-container">
-          <div className="top-row-responsive">
-            <button 
-              className="menu-toggle-btn" 
-              onClick={() => setIsSidebarOpen(true)}
-              aria-label="Open Navigation Menu"
-            >
-              ☰
-            </button>
-
-            <Link 
-              to="/" 
-              className="brand-group"
-              onClick={handleCloseProductView}
-            >
-              <img 
-                src={logoSrc}
-                alt="EmmyBright Logo" 
-                className="logo-image"
-                width="38"
-                height="38"
-                onError={handleLogoError}
-              />
-              <div className="logo-text">EmmyBright</div>
-            </Link>
-
-            <div className="mobile-nav-links-right">
-              <span className="cart-link" onClick={() => setIsCartOpen(true)}>
-                🛒 ({totalCartCount})
-              </span>
-            </div>
-          </div>
-
-          {/* Desktop nav links: Shop, Contact us, Wishlist, Hi {name}/Login, Admin (if applicable) */}
-          <div className="desktop-nav-links-only">
-            <NavLink 
-              to="/" 
-              end
-              className="link-item" 
-              onClick={handleCloseProductView}
-            >
-              Shop
-            </NavLink>
-
-            <NavLink 
-              to="/contact" 
-              className="link-item"
-            >
-              Contact us
-            </NavLink>
-
-            <NavLink 
-              to="/wishlist" 
-              className="link-item"
-              onClick={handleCloseProductView}
-            >
-              ♡ Wishlist
-            </NavLink>
-
-            {user ? (
-              <NavLink to="/account" className="link-item">
-                Hi {displayName}
-              </NavLink>
-            ) : (
-              <NavLink to="/login" className="link-item">
-                Login
-              </NavLink>
-            )}
-
-            {isAdmin && (
-              <NavLink 
-                to="/admin" 
-                className="link-item admin-link"
-              >
-                ⚙️ Admin panel
-              </NavLink>
-            )}
-          </div>
-          
-          {location.pathname === '/' && (
-            <div className="search-container">
-              <input 
-                type="text" 
-                placeholder="Search premium suits, shoes..." 
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (selectedProduct) handleCloseProductView();
-                }} 
-                className="search-input"
-              />
-              {searchQuery && <button className="clear-btn" onClick={() => setSearchQuery('')}>✕</button>}
-            </div>
-          )}
-        </div>
-
-        {/* CATEGORY BAR — small text, horizontal, below main navbar. Shown on desktop and mobile. */}
-        {location.pathname === '/' && renderCategoryBar('category-bar-desktop')}
-        {location.pathname === '/' && renderCategoryBar('category-bar-mobile')}
-      </nav>
-
-      {/* Side Navigation Overlay Backdrop */}
-      {isSidebarOpen && (
-        <div 
-          className="sidebar-overlay" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Responsive Side Navigation Menu */}
-      <aside className={`sidebar-drawer ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <Link 
-            to="/" 
-            className="brand-group"
-            onClick={() => {
-              handleCloseProductView();
-              setIsSidebarOpen(false);
-            }}
-          >
-            <div className="logo-text">EmmyBright</div>
-          </Link>
-          <button 
-            className="sidebar-close-btn"
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="sidebar-links">
-          <NavLink 
-            to="/" 
-            end
-            className="sidebar-item" 
-            onClick={() => {
-              handleCloseProductView();
-              setIsSidebarOpen(false);
-            }}
-          >
-            ✨ Shop
-          </NavLink>
-
-          <NavLink 
-            to="/wishlist" 
-            className="sidebar-item"
-            onClick={() => {
-              handleCloseProductView();
-              setIsSidebarOpen(false);
-            }}
-          >
-            ♡ Wishlist
-          </NavLink>
-
-          {user ? (
-            <NavLink 
-              to="/account" 
-              className="sidebar-item"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              👤 Hi {displayName}
-            </NavLink>
-          ) : (
-            <NavLink 
-              to="/login" 
-              className="sidebar-item"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              👤 Login
-            </NavLink>
-          )}
-
-          <NavLink 
-            to="/contact" 
-            className="sidebar-item"
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            📞 Contact Us
-          </NavLink>
-
-          <div 
-            className="sidebar-item"
-            onClick={() => {
-              setIsCartOpen(true);
-              setIsSidebarOpen(false);
-            }}
-          >
-            🛒 Cart ({totalCartCount})
-          </div>
-
-          {isAdmin && (
-            <NavLink 
-              to="/admin" 
-              className="sidebar-item admin-sidebar-link"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              ⚙️ Admin Panel
-            </NavLink>
-          )}
-
-          {/* Categories — added underneath the main links, as requested */}
-          <div className="sidebar-section-label">Categories</div>
-          <div
-            className={`sidebar-item ${activeCategoryId === null ? 'active' : ''}`}
-            onClick={() => {
-              handleSelectCategory(null);
-              setIsSidebarOpen(false);
-            }}
-          >
-            All
-          </div>
-          {categories.map((cat) => (
-            <div
-              key={cat.id}
-              className={`sidebar-item ${activeCategoryId === cat.id ? 'active' : ''}`}
-              onClick={() => {
-                handleSelectCategory(cat.id);
-                setIsSidebarOpen(false);
-              }}
-            >
-              {cat.name}
-            </div>
-          ))}
-        </div>
-      </aside>
-
-      {/* Mobile Navigation */}
-      <div className="mobile-bottom-bar">
-        <NavLink 
-          to="/" 
-          end
-          className="mobile-bar-item"
-          onClick={handleCloseProductView}
-        >
-          ✨ Shop
-        </NavLink>
-        <NavLink 
-          to="/wishlist" 
-          className="mobile-bar-item"
-          onClick={handleCloseProductView}
-        >
-          ♡ Wishlist
-        </NavLink>
-        {isAdmin && (
-          <NavLink 
-            to="/admin" 
-            className="mobile-bar-item admin-mobile-link"
-          >
-            ⚙️ Admin
-          </NavLink>
-        )}
-        {user ? (
-          <NavLink 
-            to="/account" 
-            className="mobile-bar-item"
-          >
-            👤 Hi {displayName}
-          </NavLink>
-        ) : (
-          <NavLink 
-            to="/login" 
-            className="mobile-bar-item"
-          >
-            👤 Login
-          </NavLink>
-        )}
-      </div>
+      <Navbar
+        user={user}
+        cartCount={totalCartCount}
+        onOpenCart={() => setIsCartOpen(true)}
+        categories={categories}
+        activeCategoryId={activeCategoryId}
+        onSelectCategory={handleSelectCategory}
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        onClearSearch={() => setSearchQuery('')}
+        onCloseProductView={handleCloseProductView}
+      />
 
       <Cart 
         isOpen={isCartOpen}
@@ -950,6 +672,18 @@ function App() {
           />
 
           <Route
+            path="/categories"
+            element={
+              <CategoriesPage
+                categories={categories}
+                products={products}
+                getProductImageUrl={getProductImageUrl}
+                onSelectCategory={handleSelectCategory}
+              />
+            }
+          />
+
+          <Route
             path="/account"
             element={
               <ProtectedRoute user={user}>
@@ -977,11 +711,17 @@ function App() {
           
           <Route path="*" element={<div style={{ textAlign: 'center', padding: '40px' }}>404 - Page Not Found</div>} />
         </Routes>
-
       </main>
+
       <Footer />
       <WhatsAppButton />
       <DeliveryAnimation />
+
+      {toast && (
+        <div key={toast.id} className="eb-toast" role="status" aria-live="polite">
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

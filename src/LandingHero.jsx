@@ -1,8 +1,7 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const WHATSAPP_NUMBER = '2348139108077';
-
-
 
 export default function LandingHero({
   categories = [],
@@ -23,7 +22,8 @@ export default function LandingHero({
         image: withImage ? getProductImageUrl(withImage) : null
       };
     })
-    .filter((cat) => cat.count > 0);
+    .filter((cat) => cat.count > 0)
+    .slice(0, 4); // Limit to a maximum of 4 categories on the homepage
 
   return (
     <>
@@ -51,7 +51,11 @@ export default function LandingHero({
 
       {tiles.length > 0 && (
         <section className="section">
-          <h2 className="section-title">Shop by category</h2>
+          <h2 className="section-title">
+            <Link to="/categories" className="lh-title-link">
+              Shop by category
+            </Link>
+          </h2>
           <div className="lh-tiles">
             {tiles.map((tile, i) => (
               <button
@@ -75,6 +79,11 @@ export default function LandingHero({
                 <span className="lh-tile-arrow">→</span>
               </button>
             ))}
+          </div>
+          <div className="lh-more-row">
+            <Link to="/categories" className="lh-more-dots" aria-label="More categories">
+              •••
+            </Link>
           </div>
         </section>
       )}

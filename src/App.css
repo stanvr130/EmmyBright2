@@ -1516,3 +1516,377 @@ a[aria-label="Chat with us on WhatsApp"] svg {
 .page-container {
   overflow-x: clip;
 }
+/* ==========================================
+   Wishlist popup (toast)
+   Sits above the WhatsApp button and the
+   delivery pill so they never overlap it
+   ========================================== */
+@keyframes eb-toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.eb-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 118px;
+  transform: translateX(-50%);
+  z-index: 1300;
+  max-width: calc(100vw - 32px);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #1a1a1a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: eb-toast-in 0.25s ease;
+}
+
+/* ==========================================
+   Wishlist button on the product details page
+   ========================================== */
+.pd-wishlist-btn {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  margin: -8px 0 4px;
+  padding: 7px 14px;
+  border: 1px solid #1a1a1a;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.pd-wishlist-btn span {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.pd-wishlist-btn:hover {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.pd-wishlist-btn.wishlisted {
+  border-color: #cc0000;
+  color: #cc0000;
+}
+
+.pd-wishlist-btn.wishlisted:hover {
+  background: #cc0000;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eb-toast {
+    animation: none;
+  }
+}
+/* ==========================================
+   Compact floating navbar
+   ========================================== */
+.eb-nav {
+  position: sticky;
+  top: 8px;
+  z-index: 1000;
+  width: calc(100% - 20px);
+  max-width: 1776px;
+  margin: 8px auto 0;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.95);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid #e6e6e6;
+  border-radius: 14px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+}
+
+.eb-nav-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.eb-nav .menu-toggle-btn {
+  order: 1;
+  font-size: 18px;
+  padding: 2px 6px;
+}
+
+.eb-nav .brand-group {
+  order: 2;
+  gap: 8px;
+}
+
+.eb-nav .logo-image {
+  width: 26px;
+  height: 26px;
+}
+
+.eb-nav .logo-text {
+  font-size: 13px;
+  letter-spacing: 1.2px;
+}
+
+.eb-nav .desktop-nav-links-only {
+  order: 3;
+  gap: 18px;
+  margin-left: 12px;
+  font-size: 12.5px;
+}
+
+.eb-nav .search-container {
+  order: 4;
+  margin-left: auto;
+  width: 260px;
+  max-width: 260px;
+}
+
+.eb-nav .search-input {
+  padding: 6px 28px 6px 12px;
+  font-size: 12px;
+}
+
+.eb-nav .cart-link {
+  order: 5;
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+/* On pages without the search box, keep the cart on the right */
+.eb-nav .desktop-nav-links-only + .cart-link {
+  margin-left: auto;
+}
+
+/* Floating category chips (they sit below the bar, so the bar never changes height) */
+.eb-nav-cats {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 4px 4px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.25s ease, visibility 0s;
+}
+
+.eb-nav-cats::-webkit-scrollbar {
+  display: none;
+}
+
+.eb-nav-cats.is-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.25s ease, visibility 0s linear 0.25s;
+}
+
+.eb-nav-cat {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.eb-nav-cat:hover {
+  background: #f3f3f3;
+}
+
+.eb-nav-cat.active {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #ffffff;
+}
+
+.eb-nav-more {
+  border-style: dashed;
+  gap: 4px;
+}
+
+.eb-nav-spacer {
+  height: 20px;
+}
+
+.products-anchor {
+  scroll-margin-top: 110px;
+}
+
+/* ------------------------------------------
+   Mobile
+   ------------------------------------------ */
+@media (max-width: 768px) {
+  .eb-nav {
+    top: 6px;
+    width: calc(100% - 16px);
+    margin-top: 6px;
+    padding: 5px 10px;
+    border-radius: 12px;
+  }
+
+  /* Row 1 is three columns: menu | logo + name | cart.
+     The two outer columns are equal width, so the logo sits in the exact
+     centre of the screen. The search box gets its own row underneath. */
+  .eb-nav-inner {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 6px 8px;
+  }
+
+  .eb-nav .desktop-nav-links-only {
+    display: none;
+  }
+
+  .eb-nav .menu-toggle-btn {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .eb-nav .brand-group {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
+    justify-content: center;
+    flex: none;
+    margin: 0;
+  }
+
+  .eb-nav .cart-link {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .eb-nav .search-container {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+
+  /* Smaller category chips */
+  .eb-nav-cats {
+    gap: 5px;
+    padding: 3px 2px 6px;
+  }
+
+  .eb-nav-cat {
+    padding: 4px 10px;
+    font-size: 10px;
+  }
+
+  /* Phones show only the "…" (no "See more" text) */
+  .eb-nav-more {
+    padding: 4px 12px;
+  }
+
+  .eb-nav-more .eb-more-label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eb-nav-cats,
+  .eb-nav-cats.is-hidden {
+    transition: none;
+  }
+}
+/* ==========================================
+   Homepage "Shop by category" + clickable headings
+   ========================================== */
+.lh-title-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.lh-title-link:hover {
+  text-decoration: underline;
+}
+
+/* "•••" button at the bottom right of the section */
+.lh-more-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.lh-more-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.lh-more-dots:hover {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #ffffff;
+}
+
+/* Category headings in the product list act as filter buttons */
+.section-title-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.section-title-link:hover {
+  text-decoration: underline;
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DeliveryDetails from './DeliveryDetails';
 
 export default function ProductDetail({
@@ -18,6 +18,16 @@ export default function ProductDetail({
   handleToggleWishlist
 }) {
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+
+  const openedProductId = selectedProduct?.id || selectedProduct?._id;
+
+  // Slide up to the top of the product details whenever a product is opened.
+  // (Without this the browser keeps the old scroll position, which lands on
+  // the delivery section because this page is shorter than the home page.)
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  }, [openedProductId]);
 
   if (!selectedProduct) return null;
 
@@ -48,36 +58,7 @@ export default function ProductDetail({
 
       <div className="details-flex-layout">
         {/* Compact Product Image Column */}
-        <div className="single-image-column" style={{ position: 'relative' }}>
-          {handleToggleWishlist && (
-            <button
-              type="button"
-              onClick={() => handleToggleWishlist(selectedProductId)}
-              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-              title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                zIndex: 3,
-                width: '34px',
-                height: '34px',
-                border: 'none',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(255,255,255,0.92)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '18px',
-                boxShadow: '0 1px 6px rgba(0,0,0,0.2)',
-                color: wishlisted ? '#cc0000' : '#999'
-              }}
-            >
-              {wishlisted ? '♥' : '♡'}
-            </button>
-          )}
-
+        <div className="single-image-column">
           {imageUrl ? (
             <img 
               src={imageUrl} 
@@ -103,6 +84,21 @@ export default function ProductDetail({
           <div className="single-price-tag">
             ₦{Number(selectedProduct.price).toLocaleString()}
           </div>
+
+          {/* Wishlist heart, now under the price */}
+          {handleToggleWishlist && (
+            <button
+              type="button"
+              className={`pd-wishlist-btn ${wishlisted ? 'wishlisted' : ''}`}
+              onClick={() => handleToggleWishlist(selectedProductId)}
+              aria-pressed={wishlisted}
+              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            >
+              <span aria-hidden="true">{wishlisted ? '♥' : '♡'}</span>
+              {wishlisted ? 'Saved to wishlist' : 'Add to wishlist'}
+            </button>
+          )}
           
           <div className="divider-line" />
           
