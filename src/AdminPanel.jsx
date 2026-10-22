@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import OrdersManager from './OrdersManager';
 import api from './api/api'; // Custom Axios client instance
 import './AdminPanel.css';
+
+const normalize = (value) => String(value ?? '').toLowerCase();
 
 export default function AdminPanel({ 
   backendUrl = 'http://localhost:5000', 
@@ -14,6 +16,9 @@ export default function AdminPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Inventory search
+  const [inventorySearch, setInventorySearch] = useState('');
 
   // Categories state
   const [categories, setCategories] = useState([]);
@@ -89,6 +94,28 @@ export default function AdminPanel({
       onProductsUpdated();
     }
   };
+
+  // Search: every word typed must match somewhere in the product's name,
+  // category, description, ID, sizes or colors
+  const filteredProducts = useMemo(() => {
+    const terms = normalize(inventorySearch).trim().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return products;
+
+    return products.filter((p) => {
+      const haystack = [
+        p.id,
+        `#${p.id}`,
+        p.name,
+        p.description,
+        p.categoryRef?.name || 'uncategorized',
+        ...(p.variants || []).map((v) => `${v.size || ''} ${v.color || ''}`)
+      ]
+        .map(normalize)
+        .join(' ');
+
+      return terms.every((term) => haystack.includes(term));
+    });
+  }, [products, inventorySearch]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -223,15 +250,40 @@ export default function AdminPanel({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDeleteClick = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
+  const handleDeleteClick = async (product) => {
+    if (!window.confirm(`Are you sure you want to delete "${product.name}"?`)) return;
+
+    setError('');
+    setSuccessMsg('');
 
     try {
-      await api.delete(`/products/${id}`);
-      setSuccessMsg('Product deleted successfully');
+      await api.delete(`/products/${product.id}`);
+      setSuccessMsg(`"${product.name}" deleted successfully`);
+
+      // If the product being deleted is open in the edit form, clear the form
+      if (isEditing && editingId === product.id) {
+        resetForm();
+      }
+
       handleDataChange();
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to delete product');
+      console.error('Delete product failed:', err.response?.status, err.response?.data || err);
+
+      const serverMessage =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Unknown error';
+
+      // The banner at the top of the page is easy to miss when you are deep in
+      // the table, so also show a popup that names the product.
+      const fullMessage =
+        `Could not delete "${product.name}".\n\n${serverMessage}\n\n` +
+        `This usually means the product is linked to past orders, which the database protects. ` +
+        `Set its stock to 0 to hide it from customers instead.`;
+
+      setError(fullMessage.replace(/\n\n/g, ' '));
+      alert(fullMessage);
     }
   };
 
@@ -615,11 +667,58 @@ export default function AdminPanel({
 
           {/* Inventory Table */}
           <section className="admin-card">
-            <h2>Existing Inventory</h2>
+            <div style={searchStyles.headerRow}>
+              <h2 style={{ margin: 0 }}>Existing Inventory</h2>
+
+              <div style={searchStyles.searchWrap}>
+                <input
+                  type="text"
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setInventorySearch('');
+                  }}
+                  placeholder="Search by name, category, size, or #ID..."
+                  aria-label="Search products"
+                  style={searchStyles.searchInput}
+                />
+                {inventorySearch && (
+                  <button
+                    type="button"
+                    onClick={() => setInventorySearch('')}
+                    aria-label="Clear search"
+                    title="Clear search"
+                    style={searchStyles.clearBtn}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!loading && products.length > 0 && (
+              <p style={searchStyles.countText}>
+                {inventorySearch.trim()
+                  ? `Showing ${filteredProducts.length} of ${products.length} products`
+                  : `${products.length} products`}
+              </p>
+            )}
+
             {loading ? (
               <p>Loading inventory...</p>
             ) : products.length === 0 ? (
               <p>No products found in the catalog.</p>
+            ) : filteredProducts.length === 0 ? (
+              <p>
+                No products match “{inventorySearch}”.{' '}
+                <button
+                  type="button"
+                  onClick={() => setInventorySearch('')}
+                  style={searchStyles.linkBtn}
+                >
+                  Clear search
+                </button>
+              </p>
             ) : (
               <div className="table-wrapper">
                 <table className="inventory-table">
@@ -635,7 +734,7 @@ export default function AdminPanel({
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map((prod) => (
+                    {filteredProducts.map((prod) => (
                       <tr key={prod.id}>
                         <td>#{prod.id}</td>
                         <td>
@@ -679,7 +778,7 @@ export default function AdminPanel({
                           </button>
                           <button
                             className="btn-delete"
-                            onClick={() => handleDeleteClick(prod.id)}
+                            onClick={() => handleDeleteClick(prod)}
                           >
                             Delete
                           </button>
@@ -764,3 +863,55 @@ export default function AdminPanel({
     </div>
   );
 }
+
+// Styles for the inventory search bar (inline, so no CSS file changes are needed)
+const searchStyles = {
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '12px',
+    marginBottom: '8px'
+  },
+  searchWrap: {
+    position: 'relative',
+    flex: '1 1 280px',
+    maxWidth: '420px'
+  },
+  searchInput: {
+    width: '100%',
+    padding: '10px 34px 10px 12px',
+    border: '1px solid #ccc',
+    borderRadius: '6px',
+    fontSize: '14px',
+    outline: 'none',
+    boxSizing: 'border-box'
+  },
+  clearBtn: {
+    position: 'absolute',
+    right: '8px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#888',
+    fontSize: '13px',
+    padding: '4px'
+  },
+  countText: {
+    margin: '0 0 12px 0',
+    fontSize: '12px',
+    color: '#777'
+  },
+  linkBtn: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    color: '#007bff',
+    textDecoration: 'underline',
+    cursor: 'pointer',
+    font: 'inherit'
+  }
+};
