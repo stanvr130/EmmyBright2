@@ -8,6 +8,7 @@ import AccountPage from './AccountPage';
 import ContactUs from './ContactUs';
 import ProtectedRoute from './ProtectedRoute';
 import ProductDetail from './ProductDetail';
+import CategoriesPage from './CategoriesPage';
 import TermsOfService from './TermsOfService';
 import PrivacyPolicy from './PrivacyPolicy';
 import ReturnPolicy from './ReturnPolicy';
@@ -16,9 +17,11 @@ import WhatsAppButton from './WhatsAppButton';
 import LandingHero from './LandingHero';
 import DeliveryAnimation from './DeliveryAnimation';
 import ProductRow from './ProductRow';
-import CategoriesPage from './CategoriesPage';
 import api from './api/api'; 
 import './App.css';
+
+// Set to false to glide to the top even on devices with "reduce motion" switched on
+const RESPECT_REDUCED_MOTION = true;
 
 const styles = {
   singleViewContainer: {},
@@ -45,10 +48,11 @@ const styles = {
 
 function App() {
   const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState(''); 
 
-  // CATEGORY FILTER STATE (for the category bar)
+  // CATEGORY FILTER STATE
   const [categories, setCategories] = useState([]);
   const [activeCategoryId, setActiveCategoryId] = useState(null); // null = "All"
   
@@ -96,6 +100,24 @@ function App() {
   const backendUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, '') || 'http://localhost:5000';
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Glide to the top. It waits two frames so the new page has been laid out;
+  // otherwise the browser can cancel the glide when the page height changes.
+  const scrollToTop = () => {
+    const reduceMotion =
+      RESPECT_REDUCED_MOTION && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduceMotion) {
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+  };
 
   const syncCartToBackend = async (currentCart) => {
     if (!localStorage.getItem('authToken')) return;
@@ -147,6 +169,8 @@ function App() {
     } catch (err) {
       console.error('Error fetching products:', err);
       setError(err.response?.data?.message || err.message || 'Failed to fetch products from backend');
+    } finally {
+      setProductsLoading(false);
     }
   };
 
@@ -177,6 +201,22 @@ function App() {
     fetchCategories();
     fetchWishlist();
   }, []);
+
+  // Glide to the top on every page change and every category change.
+  // The first run is skipped so a page reload keeps the browser's own scroll position.
+  const isFirstScrollRun = useRef(true);
+  useEffect(() => {
+    if (isFirstScrollRun.current) {
+      isFirstScrollRun.current = false;
+      return;
+    }
+    scrollToTop();
+  }, [location.pathname, activeCategoryId]);
+
+  // Opening a product is a state change, not a page change, so it needs its own trigger
+  useEffect(() => {
+    if (selectedProduct) scrollToTop();
+  }, [selectedProduct]);
 
   const isInWishlist = (productId) => wishlistItems.some(item => (item.id || item._id) === productId);
 
@@ -248,6 +288,15 @@ function App() {
   const handleCloseProductView = () => {
     setSelectedProduct(null);
     setSelectedSize(null);
+  };
+
+  // "Shop" (logo, desktop link, sidebar, bottom tab): back to the plain
+  // homepage with no category filter, no search and no open product.
+  const handleGoHome = () => {
+    setActiveCategoryId(null);
+    setSearchQuery('');
+    handleCloseProductView();
+    scrollToTop();
   };
 
   const clearCart = () => {
@@ -322,20 +371,18 @@ function App() {
     setCartItems((prevItems) => prevItems.filter(item => (item.variantId || item.id || item._id) !== productId));
   };
 
-  // Selecting a category from the category bar, sidebar or landing tiles —
-  // filters the homepage to just that category. Passing null resets to "All".
+  // Selecting a category from the category bar, sidebar, landing tiles, the
+  // categories page or a section heading. Passing null resets to "All".
+  // The glide to the top is handled by the effects above; the same-category
+  // case is covered here because no state changes then.
   const handleSelectCategory = (categoryId) => {
+    const alreadyThere = categoryId === activeCategoryId && location.pathname === '/';
     setActiveCategoryId(categoryId);
     handleCloseProductView();
     if (location.pathname !== '/') {
       navigate('/');
     }
-    // Bring the product list into view after the category filter applies
-    if (categoryId !== null) {
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 0);
-    }
+    if (alreadyThere) scrollToTop();
   };
 
   // Search box (lives inside Navbar): typing also closes any open product view
@@ -552,7 +599,15 @@ function App() {
         )}
 
         <div id="products" className="products-anchor">
-          {sortedCategoryNames.length > 0 ? (
+          {productsLoading && products.length === 0 ? (
+            <div className="eb-loading" role="status" aria-live="polite">
+              <div className="eb-spinner" aria-hidden="true" />
+              <p className="eb-loading-text">Loading products…</p>
+              <p className="eb-loading-hint">
+                Still working on it. The store is waking up, thanks for waiting.
+              </p>
+            </div>
+          ) : sortedCategoryNames.length > 0 ? (
             sortedCategoryNames.map((categoryName) => (
               <section className="section" key={categoryName}>
                 <h2 className="section-title">
@@ -597,13 +652,16 @@ function App() {
     )
   );
 
+  // Products an admin has hidden disappear from wishlists too
+  const visibleWishlistItems = wishlistItems.filter((product) => !product.isArchived);
+
   const wishlistView = (
     selectedProduct ? productDetailView : (
       <section className="section">
         <h2 className="section-title">Your Wishlist</h2>
-        {wishlistItems.length > 0 ? (
+        {visibleWishlistItems.length > 0 ? (
           <div className="grid">
-            {wishlistItems.map((product, index) => renderProductCard(product, index))}
+            {visibleWishlistItems.map((product, index) => renderProductCard(product, index))}
           </div>
         ) : (
           <p className="no-results-text">You haven't saved any products yet.</p>
@@ -625,6 +683,7 @@ function App() {
         onSearchChange={handleSearchChange}
         onClearSearch={() => setSearchQuery('')}
         onCloseProductView={handleCloseProductView}
+        onGoHome={handleGoHome}
       />
 
       <Cart 
@@ -655,6 +714,18 @@ function App() {
             } 
           />
 
+          <Route
+            path="/categories"
+            element={
+              <CategoriesPage
+                categories={categories}
+                products={products}
+                getProductImageUrl={getProductImageUrl}
+                onSelectCategory={handleSelectCategory}
+              />
+            }
+          />
+
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -668,18 +739,6 @@ function App() {
               ) : (
                 <Auth backendUrl={backendUrl} onAuthSuccess={handleAuthSuccess} />
               )
-            }
-          />
-
-          <Route
-            path="/categories"
-            element={
-              <CategoriesPage
-                categories={categories}
-                products={products}
-                getProductImageUrl={getProductImageUrl}
-                onSelectCategory={handleSelectCategory}
-              />
             }
           />
 

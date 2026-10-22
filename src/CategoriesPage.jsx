@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 
 export default function CategoriesPage({
@@ -7,10 +7,6 @@ export default function CategoriesPage({
   getProductImageUrl,
   onSelectCategory
 }) {
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   const tiles = categories.map((cat) => {
     const inCategory = products.filter(
       (p) => (p.categoryRef?.id ?? p.categoryId) === cat.id

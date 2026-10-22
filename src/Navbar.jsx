@@ -13,6 +13,61 @@ const HIDE_WHEN_SCROLLING_DOWN = true;
 const SCROLL_THRESHOLD_PX = 8;   // ignore tiny movements
 const SHOW_NEAR_TOP_PX = 40;     // always visible this close to the top
 
+/* Bottom-bar icons (inline SVG, they take the tab's text colour) */
+function TabIcon({ children }) {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const ShopIcon = () => (
+  <TabIcon>
+    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <path d="M16 10a4 4 0 0 1-8 0" />
+  </TabIcon>
+);
+
+const CategoriesIcon = () => (
+  <TabIcon>
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+  </TabIcon>
+);
+
+const HeartIcon = () => (
+  <TabIcon>
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </TabIcon>
+);
+
+const UserIcon = () => (
+  <TabIcon>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </TabIcon>
+);
+
+const AdminIcon = () => (
+  <TabIcon>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </TabIcon>
+);
+
 export default function Navbar({
   user,
   cartCount,
@@ -23,7 +78,8 @@ export default function Navbar({
   searchQuery,
   onSearchChange,
   onClearSearch,
-  onCloseProductView
+  onCloseProductView,
+  onGoHome
 }) {
   const location = useLocation();
   const isHome = location.pathname === '/';
@@ -115,7 +171,7 @@ export default function Navbar({
             ☰
           </button>
 
-          <Link to="/" className="brand-group" onClick={onCloseProductView}>
+          <Link to="/" className="brand-group" onClick={onGoHome}>
             <img
               src={logoSrc}
               alt="EmmyBright Logo"
@@ -129,7 +185,7 @@ export default function Navbar({
 
           {/* Desktop links: Shop, Contact us, Wishlist, Hi {name}/Login, Admin */}
           <div className="desktop-nav-links-only">
-            <NavLink to="/" end className="link-item" onClick={onCloseProductView}>
+            <NavLink to="/" end className="link-item" onClick={onGoHome}>
               Shop
             </NavLink>
 
@@ -209,12 +265,9 @@ export default function Navbar({
               <Link
                 to="/categories"
                 className="eb-nav-cat eb-nav-more"
-                aria-label="See all categories"
-                title="See all categories"
                 onClick={onCloseProductView}
               >
-                <span aria-hidden="true">…</span>
-                <span className="eb-more-label">See more</span>
+                … See more
               </Link>
             )}
           </div>
@@ -236,7 +289,7 @@ export default function Navbar({
             to="/"
             className="brand-group"
             onClick={() => {
-              onCloseProductView();
+              onGoHome();
               closeSidebar();
             }}
           >
@@ -253,7 +306,7 @@ export default function Navbar({
             end
             className="sidebar-item"
             onClick={() => {
-              onCloseProductView();
+              onGoHome();
               closeSidebar();
             }}
           >
@@ -341,29 +394,42 @@ export default function Navbar({
         </div>
       </aside>
 
-      {/* Mobile Navigation */}
-      <div className="mobile-bottom-bar">
-        <NavLink to="/" end className="mobile-bar-item" onClick={onCloseProductView}>
-          ✨ Shop
+      {/* Mobile bottom navigation */}
+      <nav className="mobile-bottom-bar" aria-label="Main navigation">
+        <NavLink to="/" end className="eb-tab" onClick={onGoHome}>
+          <ShopIcon />
+          <span className="eb-tab-label">Shop</span>
         </NavLink>
-        <NavLink to="/wishlist" className="mobile-bar-item" onClick={onCloseProductView}>
-          ♡ Wishlist
+
+        <NavLink to="/categories" className="eb-tab" onClick={onCloseProductView}>
+          <CategoriesIcon />
+          <span className="eb-tab-label">Categories</span>
         </NavLink>
+
+        <NavLink to="/wishlist" className="eb-tab" onClick={onCloseProductView}>
+          <HeartIcon />
+          <span className="eb-tab-label">Wishlist</span>
+        </NavLink>
+
         {isAdmin && (
-          <NavLink to="/admin" className="mobile-bar-item admin-mobile-link">
-            ⚙️ Admin
+          <NavLink to="/admin" className="eb-tab eb-tab-admin">
+            <AdminIcon />
+            <span className="eb-tab-label">Admin</span>
           </NavLink>
         )}
+
         {user ? (
-          <NavLink to="/account" className="mobile-bar-item">
-            👤 Hi {displayName}
+          <NavLink to="/account" className="eb-tab">
+            <UserIcon />
+            <span className="eb-tab-label">Hi {displayName}</span>
           </NavLink>
         ) : (
-          <NavLink to="/login" className="mobile-bar-item">
-            👤 Login
+          <NavLink to="/login" className="eb-tab">
+            <UserIcon />
+            <span className="eb-tab-label">Login</span>
           </NavLink>
         )}
-      </div>
+      </nav>
     </>
   );
 }

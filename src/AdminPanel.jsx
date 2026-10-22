@@ -5,6 +5,10 @@ import './AdminPanel.css';
 
 const normalize = (value) => String(value ?? '').toLowerCase();
 
+// Total stock across all variants of a product
+const getTotalStock = (product) =>
+  (product.variants || []).reduce((sum, v) => sum + Number(v.stock ?? 0), 0);
+
 export default function AdminPanel({ 
   backendUrl = 'http://localhost:5000', 
   onProductsUpdated 
@@ -17,8 +21,9 @@ export default function AdminPanel({
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Inventory search
+  // Inventory search + status filter ('all' | 'visible' | 'hidden' | 'out')
   const [inventorySearch, setInventorySearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Categories state
   const [categories, setCategories] = useState([]);
@@ -57,13 +62,15 @@ export default function AdminPanel({
     return `${backendUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  const fetchProducts = async () => {
+  // `silent` keeps the table on screen (no "Loading..." flash) so the page doesn't jump
+  const fetchProducts = async (silent = false) => {
     try {
-      setLoading(true);
-      const res = await api.get('/products');
+      if (!silent) setLoading(true);
+      // The admin list includes hidden products; the public /products list does not
+      const res = await api.get('/products/admin/all');
       setProducts(res.data);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to load products');
+      setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to load products');
     } finally {
       setLoading(false);
     }
@@ -87,21 +94,32 @@ export default function AdminPanel({
   }, []);
 
   // Helper to sync local state and alert parent container
-  const handleDataChange = () => {
-    fetchProducts();
+  const handleDataChange = (silent = false) => {
+    fetchProducts(silent);
     fetchCategories(); // product counts per category may have changed
     if (typeof onProductsUpdated === 'function') {
       onProductsUpdated();
     }
   };
 
-  // Search: every word typed must match somewhere in the product's name,
-  // category, description, ID, sizes or colors
+  // Products that are out of stock but still visible to customers
+  const outOfStockVisible = useMemo(
+    () => products.filter((p) => !p.isArchived && getTotalStock(p) <= 0),
+    [products]
+  );
+
+  // Search + status filter: every word typed must match somewhere in the
+  // product's name, category, description, ID, sizes or colors
   const filteredProducts = useMemo(() => {
     const terms = normalize(inventorySearch).trim().split(/\s+/).filter(Boolean);
-    if (terms.length === 0) return products;
 
     return products.filter((p) => {
+      if (statusFilter === 'visible' && p.isArchived) return false;
+      if (statusFilter === 'hidden' && !p.isArchived) return false;
+      if (statusFilter === 'out' && (p.isArchived || getTotalStock(p) > 0)) return false;
+
+      if (terms.length === 0) return true;
+
       const haystack = [
         p.id,
         `#${p.id}`,
@@ -115,7 +133,14 @@ export default function AdminPanel({
 
       return terms.every((term) => haystack.includes(term));
     });
-  }, [products, inventorySearch]);
+  }, [products, inventorySearch, statusFilter]);
+
+  const filtersActive = inventorySearch.trim() !== '' || statusFilter !== 'all';
+
+  const clearFilters = () => {
+    setInventorySearch('');
+    setStatusFilter('all');
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -174,25 +199,32 @@ export default function AdminPanel({
 
     const endpoint = isEditing ? `/products/${editingId}` : '/products';
 
-    // Expand comma-separated sizes into individual variant objects
+    // Expand comma-separated sizes into individual variant objects.
+    // Existing variants keep their id, so the server UPDATES them instead of
+    // creating a duplicate every time the product is edited.
     const processedVariants = [];
 
     formData.variants.forEach((v) => {
       if (v.size && v.size.includes(',')) {
         const splitSizes = v.size.split(',').map((s) => s.trim()).filter(Boolean);
-        splitSizes.forEach((singleSize) => {
-          processedVariants.push({
+        splitSizes.forEach((singleSize, i) => {
+          const piece = {
             size: singleSize,
             color: v.color || '',
             stock: Number(v.stock) || 0
-          });
+          };
+          // The existing row's id goes to the first size; the rest are new variants
+          if (i === 0 && v.id) piece.id = v.id;
+          processedVariants.push(piece);
         });
       } else {
-        processedVariants.push({
+        const piece = {
           size: v.size ? v.size.trim() : '',
           color: v.color || '',
           stock: Number(v.stock) || 0
-        });
+        };
+        if (v.id) piece.id = v.id;
+        processedVariants.push(piece);
       }
     });
 
@@ -250,6 +282,67 @@ export default function AdminPanel({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // ==========================================
+  //        HIDE / SHOW (customer visibility)
+  // ==========================================
+
+  const setProductHidden = async (product, hide) => {
+    await api.patch(`/products/${product.id}/visibility`, { isArchived: hide });
+    // Update the row in place so the table doesn't flash or jump
+    setProducts((prev) =>
+      prev.map((p) => (p.id === product.id ? { ...p, isArchived: hide } : p))
+    );
+  };
+
+  const handleToggleVisibility = async (product) => {
+    setError('');
+    setSuccessMsg('');
+    const hide = !product.isArchived;
+
+    try {
+      await setProductHidden(product, hide);
+      setSuccessMsg(
+        hide
+          ? `"${product.name}" is now hidden from customers.`
+          : `"${product.name}" is visible to customers again.`
+      );
+      if (typeof onProductsUpdated === 'function') onProductsUpdated();
+    } catch (err) {
+      console.error('Visibility change failed:', err.response?.status, err.response?.data || err);
+      setError(
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Could not change product visibility'
+      );
+    }
+  };
+
+  const handleHideAllOutOfStock = async () => {
+    if (outOfStockVisible.length === 0) return;
+
+    const names = outOfStockVisible.map((p) => `• ${p.name}`).join('\n');
+    if (!window.confirm(`Hide these ${outOfStockVisible.length} out-of-stock products from customers?\n\n${names}`)) {
+      return;
+    }
+
+    setError('');
+    setSuccessMsg('');
+
+    const results = await Promise.allSettled(
+      outOfStockVisible.map((p) => setProductHidden(p, true))
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    const done = results.length - failed;
+
+    if (failed > 0) {
+      setError(`Hid ${done} products, but ${failed} could not be hidden. Please try again.`);
+    } else {
+      setSuccessMsg(`Hid ${done} out-of-stock product${done === 1 ? '' : 's'} from customers.`);
+    }
+    if (typeof onProductsUpdated === 'function') onProductsUpdated();
+  };
+
   const handleDeleteClick = async (product) => {
     if (!window.confirm(`Are you sure you want to delete "${product.name}"?`)) return;
 
@@ -265,7 +358,7 @@ export default function AdminPanel({
         resetForm();
       }
 
-      handleDataChange();
+      handleDataChange(true);
     } catch (err) {
       console.error('Delete product failed:', err.response?.status, err.response?.data || err);
 
@@ -275,15 +368,23 @@ export default function AdminPanel({
         err.message ||
         'Unknown error';
 
-      // The banner at the top of the page is easy to miss when you are deep in
-      // the table, so also show a popup that names the product.
-      const fullMessage =
-        `Could not delete "${product.name}".\n\n${serverMessage}\n\n` +
-        `This usually means the product is linked to past orders, which the database protects. ` +
-        `Set its stock to 0 to hide it from customers instead.`;
+      // 409 = the product is part of past orders. Offer the safe alternative on the spot.
+      if (err.response?.status === 409 || /foreign key|past orders/i.test(serverMessage)) {
+        if (product.isArchived) {
+          alert(`Could not delete "${product.name}".\n\n${serverMessage}\n\nIt is already hidden from customers.`);
+          return;
+        }
+        const hideInstead = window.confirm(
+          `Could not delete "${product.name}".\n\n${serverMessage}\n\nHide it from customers instead?`
+        );
+        if (hideInstead) {
+          handleToggleVisibility(product);
+        }
+        return;
+      }
 
-      setError(fullMessage.replace(/\n\n/g, ' '));
-      alert(fullMessage);
+      setError(serverMessage);
+      alert(`Could not delete "${product.name}".\n\n${serverMessage}`);
     }
   };
 
@@ -331,7 +432,7 @@ export default function AdminPanel({
       setEditingCategoryId(null);
       setEditingCategoryName('');
       fetchCategories();
-      fetchProducts(); // product list shows category names, refresh it too
+      fetchProducts(true); // product list shows category names, refresh it too
     } catch (err) {
       setCategoryError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to rename category');
     }
@@ -667,38 +768,78 @@ export default function AdminPanel({
 
           {/* Inventory Table */}
           <section className="admin-card">
-            <div style={searchStyles.headerRow}>
+            <div style={listStyles.headerRow}>
               <h2 style={{ margin: 0 }}>Existing Inventory</h2>
 
-              <div style={searchStyles.searchWrap}>
-                <input
-                  type="text"
-                  value={inventorySearch}
-                  onChange={(e) => setInventorySearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') setInventorySearch('');
-                  }}
-                  placeholder="Search by name, category, size, or #ID..."
-                  aria-label="Search products"
-                  style={searchStyles.searchInput}
-                />
-                {inventorySearch && (
-                  <button
-                    type="button"
-                    onClick={() => setInventorySearch('')}
-                    aria-label="Clear search"
-                    title="Clear search"
-                    style={searchStyles.clearBtn}
-                  >
-                    ✕
-                  </button>
-                )}
+              <div style={listStyles.controls}>
+                <div style={listStyles.searchWrap}>
+                  <input
+                    type="text"
+                    value={inventorySearch}
+                    onChange={(e) => setInventorySearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setInventorySearch('');
+                    }}
+                    placeholder="Search by name, category, size, or #ID..."
+                    aria-label="Search products"
+                    style={listStyles.searchInput}
+                  />
+                  {inventorySearch && (
+                    <button
+                      type="button"
+                      onClick={() => setInventorySearch('')}
+                      aria-label="Clear search"
+                      title="Clear search"
+                      style={listStyles.clearBtn}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filter by visibility"
+                  style={listStyles.select}
+                >
+                  <option value="all">All products</option>
+                  <option value="visible">Visible to customers</option>
+                  <option value="hidden">Hidden from customers</option>
+                  <option value="out">Out of stock (still visible)</option>
+                </select>
               </div>
             </div>
 
+            {/* Nudge: out-of-stock products customers can still see */}
+            {!loading && outOfStockVisible.length > 0 && (
+              <div style={listStyles.nudge}>
+                <span>
+                  <strong>{outOfStockVisible.length}</strong> out-of-stock product
+                  {outOfStockVisible.length === 1 ? ' is' : 's are'} still visible to customers.
+                </span>
+                <span style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('out')}
+                    style={listStyles.nudgeSecondaryBtn}
+                  >
+                    Show them
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleHideAllOutOfStock}
+                    style={listStyles.nudgeBtn}
+                  >
+                    Hide all out-of-stock
+                  </button>
+                </span>
+              </div>
+            )}
+
             {!loading && products.length > 0 && (
-              <p style={searchStyles.countText}>
-                {inventorySearch.trim()
+              <p style={listStyles.countText}>
+                {filtersActive
                   ? `Showing ${filteredProducts.length} of ${products.length} products`
                   : `${products.length} products`}
               </p>
@@ -710,13 +851,13 @@ export default function AdminPanel({
               <p>No products found in the catalog.</p>
             ) : filteredProducts.length === 0 ? (
               <p>
-                No products match “{inventorySearch}”.{' '}
+                No products match your search or filter.{' '}
                 <button
                   type="button"
-                  onClick={() => setInventorySearch('')}
-                  style={searchStyles.linkBtn}
+                  onClick={clearFilters}
+                  style={listStyles.linkBtn}
                 >
-                  Clear search
+                  Clear filters
                 </button>
               </p>
             ) : (
@@ -734,57 +875,80 @@ export default function AdminPanel({
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredProducts.map((prod) => (
-                      <tr key={prod.id}>
-                        <td>#{prod.id}</td>
-                        <td>
-                          {prod.image ? (
-                            <img
-                              src={getImageUrl(prod.image)}
-                              alt={prod.name}
-                              className="table-thumb"
-                              style={{ cursor: 'zoom-in' }}
-                              title="Click to enlarge"
-                              onClick={() => setZoomedImage({ url: getImageUrl(prod.image), name: prod.name })}
-                            />
-                          ) : (
-                            <span className="no-img">No Image</span>
-                          )}
-                        </td>
-                        <td><strong>{prod.name}</strong></td>
-                        <td>{prod.categoryRef?.name || <em>Uncategorized</em>}</td>
-                        <td>₦{Number(prod.price).toLocaleString()}</td>
-                        <td>
-                          {prod.variants?.length > 0 ? (
-                            <ul className="variant-list">
-                              {prod.variants.map((v, idx) => (
-                                <li key={v.id || `v-${prod.id}-${idx}`}>
-                                  {v.size && `Size: ${v.size} `}
-                                  {v.color && `Color: ${v.color} `}
-                                  <strong>(Stock: {v.stock})</strong>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <em>No variants</em>
-                          )}
-                        </td>
-                        <td className="action-cells">
-                          <button
-                            className="btn-edit"
-                            onClick={() => handleEditClick(prod)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="btn-delete"
-                            onClick={() => handleDeleteClick(prod)}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredProducts.map((prod) => {
+                      const totalStock = getTotalStock(prod);
+                      const isOut = totalStock <= 0;
+
+                      return (
+                        <tr key={prod.id} style={prod.isArchived ? { opacity: 0.55 } : undefined}>
+                          <td>#{prod.id}</td>
+                          <td>
+                            {prod.image ? (
+                              <img
+                                src={getImageUrl(prod.image)}
+                                alt={prod.name}
+                                className="table-thumb"
+                                style={{ cursor: 'zoom-in' }}
+                                title="Click to enlarge"
+                                onClick={() => setZoomedImage({ url: getImageUrl(prod.image), name: prod.name })}
+                              />
+                            ) : (
+                              <span className="no-img">No Image</span>
+                            )}
+                          </td>
+                          <td>
+                            <strong>{prod.name}</strong>
+                            <div style={{ marginTop: '4px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              {prod.isArchived && <span style={listStyles.badgeHidden}>Hidden</span>}
+                              {isOut && <span style={listStyles.badgeOut}>Out of stock</span>}
+                            </div>
+                          </td>
+                          <td>{prod.categoryRef?.name || <em>Uncategorized</em>}</td>
+                          <td>₦{Number(prod.price).toLocaleString()}</td>
+                          <td>
+                            {prod.variants?.length > 0 ? (
+                              <ul className="variant-list">
+                                {prod.variants.map((v, idx) => (
+                                  <li key={v.id || `v-${prod.id}-${idx}`}>
+                                    {v.size && `Size: ${v.size} `}
+                                    {v.color && `Color: ${v.color} `}
+                                    <strong>(Stock: {v.stock})</strong>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <em>No variants</em>
+                            )}
+                          </td>
+                          <td className="action-cells">
+                            <button
+                              className="btn-edit"
+                              onClick={() => handleEditClick(prod)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className={prod.isArchived ? 'btn-edit' : 'btn-secondary'}
+                              style={isOut && !prod.isArchived ? listStyles.hideNowBtn : undefined}
+                              onClick={() => handleToggleVisibility(prod)}
+                              title={
+                                prod.isArchived
+                                  ? 'Show this product to customers again'
+                                  : 'Hide this product from customers'
+                              }
+                            >
+                              {prod.isArchived ? 'Show' : 'Hide'}
+                            </button>
+                            <button
+                              className="btn-delete"
+                              onClick={() => handleDeleteClick(prod)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -864,8 +1028,8 @@ export default function AdminPanel({
   );
 }
 
-// Styles for the inventory search bar (inline, so no CSS file changes are needed)
-const searchStyles = {
+// Inline styles for the inventory list controls (no CSS file changes needed)
+const listStyles = {
   headerRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -874,10 +1038,18 @@ const searchStyles = {
     gap: '12px',
     marginBottom: '8px'
   },
+  controls: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '8px',
+    flex: '1 1 320px',
+    justifyContent: 'flex-end'
+  },
   searchWrap: {
     position: 'relative',
-    flex: '1 1 280px',
-    maxWidth: '420px'
+    flex: '1 1 240px',
+    maxWidth: '380px'
   },
   searchInput: {
     width: '100%',
@@ -900,6 +1072,48 @@ const searchStyles = {
     fontSize: '13px',
     padding: '4px'
   },
+  select: {
+    padding: '10px 12px',
+    border: '1px solid #ccc',
+    borderRadius: '6px',
+    fontSize: '13px',
+    backgroundColor: '#fff',
+    cursor: 'pointer'
+  },
+  nudge: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '10px',
+    padding: '10px 14px',
+    marginBottom: '12px',
+    backgroundColor: '#fff4e5',
+    border: '1px solid #f5d9a8',
+    borderRadius: '6px',
+    color: '#8a5a00',
+    fontSize: '13px'
+  },
+  nudgeBtn: {
+    padding: '6px 12px',
+    backgroundColor: '#b36b00',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: 700,
+    cursor: 'pointer'
+  },
+  nudgeSecondaryBtn: {
+    padding: '6px 12px',
+    backgroundColor: 'transparent',
+    color: '#8a5a00',
+    border: '1px solid #b36b00',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer'
+  },
   countText: {
     margin: '0 0 12px 0',
     fontSize: '12px',
@@ -913,5 +1127,28 @@ const searchStyles = {
     textDecoration: 'underline',
     cursor: 'pointer',
     font: 'inherit'
+  },
+  badgeHidden: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    backgroundColor: '#e8e8e8',
+    color: '#555',
+    fontSize: '10px',
+    fontWeight: 700
+  },
+  badgeOut: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    backgroundColor: '#fce8e6',
+    color: '#c5221f',
+    fontSize: '10px',
+    fontWeight: 700
+  },
+  hideNowBtn: {
+    backgroundColor: '#b36b00',
+    color: '#fff',
+    border: 'none'
   }
 };
